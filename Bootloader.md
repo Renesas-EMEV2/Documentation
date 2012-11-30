@@ -130,6 +130,16 @@ Build Examples
 	-rw-r--r--   1 ffxx68 ffxx68  122712 2012-09-21 08:36 uboot-sd.bin
 	-rwxr-xr-x   1 ffxx68 ffxx68    8544 2012-09-21 08:36 sdboot.bin
 
+Toolchains
+----------
+
+The bootloader have been tested as working when built with:
+
+* Code Sourcery 2009.03
+* gcc 4.4.x
+
+Other versions can't be ensured to work, at present.
+
 Firmware "flashing" on the final device
 ---------------------------------------
 
