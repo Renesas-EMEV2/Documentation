@@ -10,28 +10,32 @@ How to build
 ------------
 
 Have an arm EABI toolchain installed on your host.
+
 Note - Android AOSP comes with a toolchain included.
 
-export CROSS_COMPILER=arm-eabi-  (or the prefix of your toolchain)
-export ARCH=arm
-make <config>  (see below for possible configurations)
-make 
+	export CROSS_COMPILER=arm-eabi-  (or the prefix of your toolchain)
+	export ARCH=arm
+	make <config>  (see below for possible configurations)
+	make
 
-Repositories
-------------
+Repositories and branches
+-------------------------
 
 Kernel is stored under this GIT repo on:
 
 https://github.com/Renesas-EMEV2/RenesasEV2-BSPGB-Kernel
 
-Branches
---------
+The following valid branches exist here at present:
 
 * MyPad: valid for Android GingerBread (GB) build
 * emev-4.1: valid for an Android JellyBean (JB) build
 
+Both are based upon the 2.6.35.7 kernel base version, patched for Android and the Renesas Emma EV2 SoC specific drivers.
+
 Configurations
 --------------
+
+We prefer not to branch new kernel versions (unless we are going to move to a major kernal release, like 3.8 or newer). Additional customizations on top of this base version cover different board manufacturing and device peripherals and are handled through confguration options. The major default configurations defined for the Renesas EMEV, up to now, are the following:
 
 * emev_mypad_gb_defconfig
 

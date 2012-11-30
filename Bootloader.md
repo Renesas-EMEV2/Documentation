@@ -15,26 +15,26 @@ datasheets/R19UH0036EJ0600_1chip.pdf
 
 * Appendix C: Boot loader in ROM
 
-u-boot cofigurations
---------------------
+u-boot configurations
+---------------------
 
 This u-boot can be compiled with different configurations, for the Renesas EMMA platforms. E.g.
 
- emev_emmc_config
- emev_sd_config
- ...
+* emev_emmc_config
+* emev_sd_config
+* ...
 
 EM/EV ROM boot code exist in 0xFFFF_0000, and it use internal SRAM 0xF000_0000. This ROM boot code will load "mini-boot" to SRAM and jump to 0xF000_0000. For SD boot mode, mini-boot is "sdboot.bin" in the SD card root directory. For eMMC boot, miniboot is the first 8K bytes in mmcblk0p1. Mini-boot will then load the remaining part:
 
 For an SD-card boot:
-Load rest of u-boot (uboot-sd.bin to DDR#0x4100_8000)
-Load kernel image (uImage to DDR#0x4000_7fc0)
-Load ram disk (cramfs to DDR#0x4600_0000), this is optional due to compile option
+Load rest of u-boot (uboot-sd.bin to DDR#0x4100_8000);
+Load kernel image (uImage to DDR#0x4000_7fc0);
+Load ram disk (cramfs to DDR#0x4600_0000), this is optional due to compile option.
 
 For an eMMC boot:
-Load rest of u-boot (mmcblk0p1#0x0000_2000-0x0004_0000 to DDR#0x4100_8000)
-Load kernel image (mmcblk0p2 to DDR#0x4000_7fc0)
-Then jump to u-boot
+Load rest of u-boot (mmcblk0p1#0x0000_2000-0x0004_0000 to DDR#0x4100_8000);
+Load kernel image (mmcblk0p2 to DDR#0x4000_7fc0);
+Then jump to u-boot.
 
 Source code of mini-boot
 ------------------------
@@ -52,7 +52,7 @@ File names are hardcoded in board/emxx/emev/mini-boot/mmc/mmc.c :
 		{0x63, 0x72, 0x61, 0x6D, 0x66, 0x73, 0x20, 0x20},	/* cramfs */
 	};
 
-There will be different boot arguments from u-boot, whose definitions can be found in include/configs/emev.h. E.g
+There will be different possible boot arguments set up u-boot, whose definitions can be found in include/configs/emev.h. E.g
 
 	...
 	#if defined(CONFIG_EMXX_EMMCBOOT) || defined(CONFIG_EMXX_ESDBOOT) 
@@ -74,9 +74,9 @@ There will be different boot arguments from u-boot, whose definitions can be fou
 
 Hence, for different build configurations:
 
-emev_emmc_config -> starts "ext3cmd" with root fs set to /dev/mmcblk0p3 (the internal eMMC NAND, partition 3)
-emev_sd_config -> starts "cramfscmd" with root fs set to /dev/mmcblk1p3 (the external SD-card Flash, partition 3)
-emev_sdtest_config -> starts "ext3cmd" with root fs set to /dev/mmcblk1p3 (the external SD-card Flash, partition 3)
+* emev_emmc_config -> starts "ext3cmd" with root fs set to /dev/mmcblk0p3 (the internal eMMC NAND, partition 3)
+* emev_sd_config -> starts "cramfscmd" with root fs set to /dev/mmcblk1p3 (the external SD-card Flash, partition 3)
+* emev_sdtest_config -> starts "ext3cmd" with root fs set to /dev/mmcblk1p3 (the external SD-card Flash, partition 3)
 
 Build Examples
 --------------
@@ -166,13 +166,13 @@ You can find how flashing works by mounting a host Linux sytem the "cramfs" foun
 
 The boot command includes "init=/linuxrc", which points to a standard busybox executable. This will by default invoke the "::sysinit:/etc/init.d/rcS" action. This is would invoke either "ff4 or "install.sh" script, whatever is present. 
 
-ff4 is a menu driver executable (a closed source binary only), which will let you choose what to do, including the full internal NAND flashing. This optoin is similar to what the "install.sh" script does, that is 
+ff4 is a menu-driven tool (we have it as a closed source executable only), which will let you choose what to do, including the full internal NAND flashing. This latter option is similar to what the "install.sh" script does, that is:
 
 * recreate NAND partitions
 * write bootloaders, and kernel images from SD-card in to the corresponding partition each
 * expand the Android file system tar.gz from SD-card onto the corresponding partition
 
-This script is found in the fwupd/files/ directory
+The install.sh script is found in the fwupd/files/ directory
 
 Preparing an SD card for device firmware update
 -----------------------------------------------
@@ -193,7 +193,7 @@ NOTE - The android file system (android-fs4.tar.gz) and final kernel image (uIma
 
 See also the android fs packaging procedure, described at:
 
-https://github.com/Renesas-EMEV2/Renesas-device_emev/blob/emev-4.1/README
+https://github.com/Renesas-EMEV2/Documentation/Android.md
 
 Preparing a "bootable" SD card
 ------------------------------
@@ -202,13 +202,13 @@ Booting from SD card is normally meant for firmware updates, but we could also m
 
 The following approach could be used:
 
-1) the SD card should be partitioned and prepared in a way that is similar to the internal NAND
-2) the Android init.rc should be corrected to mount the fs to SD card partitions, in place of the NAND ones
-3) the uboot-sd.bin should boot with "run ext3cmd" with root fs at "/dev/mmcblk1p3" (the SD card, partition 3)
+1. the SD card should be partitioned and prepared in a way that is similar to the internal NAND
+2. the Android init.rc should be corrected to mount the fs to SD card partitions, in place of the NAND ones
+3. the uboot-sd.bin should boot with "run ext3cmd" with root fs at "/dev/mmcblk1p3" (the SD card, partition 3)
 
-The following configuration takes care of building the bootloader as per point 3 above:
+The following command builds the bootloader as per point 3 above:
 
- emev_sdtest_config
+	make emev_sdtest_config
 
 The complete script to prepare the SD card in such way is provided:
 

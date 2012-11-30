@@ -5,13 +5,10 @@ More discussion about this can be found on
 
 https://groups.google.com/forum/?fromgroups#!forum/renesas-emev-osp
 
-Steps to setup a build environment for Android
-----------------------------------------------
-
 Download AOSP source code
 -------------------------
 
-Follow the steps in:
+Follow the generic steps described in:
 
  http://source.android.com/source/downloading.html
 
@@ -23,7 +20,7 @@ so, the "repo init" step should be made using this manifest:
 
 	repo init -u https://github.com/Renesas-EMEV2/Renesas-manifest.git -b emev-4.1
 
-to update the projects from the Jingerbread (4.1) branch.
+to update the entire set projects to the Jingerbread (4.1) version, plus our customization.
 
 In .repo/manifests/deafult.xml, customized projects are linked to the corresponding repositories on our github organization (i.e. "Renesas-EMEV2"), while the rest are pulled off the standard google source repositories, as usual in AOSP.
 
@@ -91,18 +88,18 @@ Generating the Signing Keys for this project
 
 I'm not sure about the aim of these steps are, or if they're actually required, but I did them following a tutorial I found about Android porting... (http://marakana.com/static/courseware/android/Remixing_Android/index.html):
 
- SIGNER="/C=IT/ST=RM/L=Rome/O=ffxx68/OU=Android/CN=Android Platform Signer/emailAddress=ffumi68@gmail.com"
- cd $AOSP
- rm build/target/product/security/*.p*
- echo | development/tools/make_key build/target/product/security/platform "$SIGNER"
- echo | development/tools/make_key build/target/product/security/shared "$SIGNER"
- echo | development/tools/make_key build/target/product/security/media "$SIGNER"
- echo | development/tools/make_key build/target/product/security/testkey "$SIGNER"
+	SIGNER="/C=IT/ST=RM/L=Rome/O=ffxx68/OU=Android/CN=Android Platform Signer/emailAddress=ffumi68@gmail.com"
+	cd $AOSP
+	rm build/target/product/security/*.p*
+	echo | development/tools/make_key build/target/product/security/platform "$SIGNER"
+	echo | development/tools/make_key build/target/product/security/shared "$SIGNER"
+	echo | development/tools/make_key build/target/product/security/media "$SIGNER"
+	echo | development/tools/make_key build/target/product/security/testkey "$SIGNER"
 
 This is the command to verify that all went fine:
  
- ls -1 build/target/product/security/*.p*
- openssl x509 -noout -subject -issuer -in  build/target/product/security/platform.x509.pem
+	ls -1 build/target/product/security/*.p*
+	openssl x509 -noout -subject -issuer -in  build/target/product/security/platform.x509.pem
 
 I guess these keys are something required to pass the official Android Google certification (though I can't tell for sure).
 
@@ -142,8 +139,6 @@ Anyone interested in participating can use our ROSP Discussion Group on Google, 
  
 Use the same group if you think anything in the whole process may be improved. Suggestions are always welcome!
 
-
-
 Building Android
 ----------------
 
@@ -180,6 +175,7 @@ Once you have your code, you would build Android with:
 	time make -j2 showcommands 2>&1 | tee make.log
 	...
 (took about 4 hours to make, on my 2x2.4GHz, 4 Gb RAM Ubuntu)
+
 	...
 	Installed file list: out/target/product/emev/installed-files.txt
 
@@ -196,7 +192,7 @@ Kernel source code is stored at
 
  https://github.com/Renesas-EMEV2/RenesasEV2-BSPGB-Kernel 
 
-and the emev-4.1 branch should be used. Kernel image should be built before the packaging step.
+and the emev-4.1 branch should be used. Kernel image should be built before building SGX modules and final packaging steps.
 
 See also the configuration documentation in
 
@@ -214,7 +210,7 @@ should be recompiled manually, before completing the packaging.
 
 See how to in device/renesas/emev/sgx_new/eurasia_km/compile.txt, or build.sh
 
-I'd wish one day this step is integrated within the main Android build ***
+I wish one day this step is integrated within the main Android build.
 
 About OMX and SGX binaries
 --------------------------
