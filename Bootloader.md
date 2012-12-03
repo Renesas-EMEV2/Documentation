@@ -143,7 +143,7 @@ Other versions can't be ensured to work, at present.
 Firmware "flashing" on the final device
 ---------------------------------------
 
-Installing a new firmware installation (i.e. "flashing") on Renesas devices implies having an FAT-32 or FAT-16 SD card, containing at least:
+Installing a new firmware (i.e. "flashing") on Renesas devices implies having an FAT-32 or FAT-16 SD card, containing at least:
 
  - sdboot.bin and uboot-sd.bin built from "emev_sd_line_config"
  - a uImage with a kernel providing the basic services for file system access and update the screen buffer (to show installation progress)
@@ -227,3 +227,43 @@ The complete script to prepare the SD card in such way is provided:
 including the uboot make, SD partitioning and creation steps.
 
 NOTE - The android file system (android-fs4.tar.gz) and kernel image (uImage) are not included and should be stored in testsd/ before executing the script. Also, the android init.rc should have been patched assuming root fs at "/dev/mmcblk1p3", in place of the usual "/dev/mmcblk0p3".
+
+Using serial console and reloading kernel image
+-----------------------------------------------
+
+The device exposes the UART connector as pads on the main board (e.g. see datasheet/SERIAL.png for the "Livall" tablet; pad details may differ for different manufacturers). A common Linux program which implements the Kermit serial protocol is C-Kermit (find more info on-line, about this program). If you use a UART-to-USB adapater to connect the device to your host PC, the following is the Kermit configuration to use on your host:
+
+	set line /dev/ttyUSB0
+	set speed 115200
+	set carrier-watch off
+	set flow-control none
+
+The following alias may also help starting kermit:
+
+ 	alias kerm='sudo chmod 666 /dev/ttyUSB0; kermrc'
+
+Once in Kermit, connect to the device with the standard 'connect' command:
+
+	C-Kermit> c [onnect]
+
+Immediately after booting, you'll  will have 3 seconds to hit a key to enter the u-boot prompt. To continue with he usual start-up procedure, use the 'boot' command:
+
+ 	EM/EV # boot
+
+If on the other hand you want to load a different kernel image instead, for example if the installed one is corrupted, you should execute the 'loadb' u-boot command:
+
+	EM/EV # loadb
+
+Now escape back to the kermit shell prompt (ctrl+\ followed by ctrl+c by default). Tell kermit to transmit the file you want by doing:
+
+	C-Kermit> robust
+	C-Kermit> send /host/path/to/uImage
+
+Text will appear giving you information about the progress of the upload. A 5 Mbyte uImage takes approximately 10 mimutes to complete. Note the 'robust' command preceding the 'send' one, which may be necessary for a reliable communication. See also the U-Boot and Kermit command documentation, for more information.
+
+After the upload has finished, switch back to the U-Boot command line and boot the new kernel image:
+
+	C-Kermit> c
+
+	EM/EV # boot
+
