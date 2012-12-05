@@ -22,23 +22,18 @@ so, the "repo init" step should be made using this manifest:
 
 to update the entire set projects to the Jingerbread (4.1) version, plus our customization.
 
-In .repo/manifests/deafult.xml, customized projects are linked to the corresponding repositories on our github organization (i.e. "Renesas-EMEV2"), while the rest are pulled off the standard google source repositories, as usual in AOSP.
+In .repo/manifests/deafult.xml, our ROSP custom projects are linked to the corresponding repositories on our github organization (i.e. "Renesas-EMEV2"), while the rest are pulled off the standard google source repositories, as usual in AOSP.
 
-NOTE - Downloading the full AOSP source may take hours to complete, even on a fast connection.
+Each custom project has a "emev-4.1" branch, to track ROSP changes for JB (the "MyPad" branch was used to track changes for GB instead).
 
-Some of the scripts mentioed below require the definition of environment variables, to later refer to the AOSP, or Kernel home dir. E.g.:
-
-	export AOSP=~/renesas/jb
-	export KERNEL=~/renesas/kernel
-
-NOTE - Our customized kernel is found on github as well, at: https://github.com/Renesas-EMEV2/RenesasEV2-BSPGB-Kernel in the emev-4.1 branch as well.
+NOTE - Consider waiting a few hours to downloading the full AOSP source, even on a fast connection, as the complete package is several Gigas.
 
 Preparing the build environment
 -------------------------------
 
 ### Install the mandatory packages
 
-This is by far the less easy section o describe in general, as it may depend on the host system the build environment is based upon. Luckily, you need to fix this up only once (until you decide to migrate the project to a new host):
+This is the section hardest to describe in general, as it depends on the host system the build environment is based upon. Luckily, you need to fix this up only once (until at least you decide to migrate the project to a new host):
 
 You need at least to install the AOSP prerequisite packages, as said in:
 
@@ -50,11 +45,11 @@ but sometimes that's not enough. For example, a basic Ubuntu setup is normally m
 
 ### Setting up JAVA 
 
-We need JDK version 6 to build Gingerbread. The Open-JDK is installed with:
+We need JDK version 6 to build JB. The Open-JDK is installed with:
 
- sudo apt-get install openjdk-6-jdk
+	sudo apt-get install openjdk-6-jdk
  
-On the other hand, the suggested installation of Oracle JDK does not work!
+On the other hand, installation of Oracle JDK as suggested on the ASOP Google pagesdoes not work!
 
 If you have both Open-JDK and Oracle-JDK installed, you can choose which one to use executing:
 
@@ -64,7 +59,7 @@ If you have both Open-JDK and Oracle-JDK installed, you can choose which one to 
 	sudo update-alternatives --config javah
 	sudo update-alternatives --config javadoc
 
-and select the Open-JDK version for each of these, as a build using Oracle JDK failed to boot...
+and select the Open-JDK version for each of these packages. The build using Oracle-JDK failed to boot...
 
 See also here:
 
@@ -77,16 +72,12 @@ Also, for an Ubuntu 12.04 host, even installing all the suggested packages, I go
 	sudo apt-get install lib32ncurses5-dev
 	sudo apt-get install lib32z1-dev
 
-I found these searching on Google for the error codes + "Ubuntu 12", so please try the same before asking...
+I found these searching on Google for the error codes + "Ubuntu 12", so let me suggest to try this approach, if you encouter any error. The discussion group https://groups.google.com/forum/?fromgroups#!forum/renesas-emev-osp is always open for questions, of course.
 
-To compile kernel, I also missed this one:
+Generating the "Signing Keys"
+-----------------------------
 
-	sudo apt-get install uboot-mkimage
-
-Generating the Signing Keys for this project
---------------------------------------------
-
-I'm not sure about the aim of these steps are, or if they're actually required, but I did them following a tutorial I found about Android porting... (http://marakana.com/static/courseware/android/Remixing_Android/index.html):
+I'm not sure what the aim of these steps is, or if they're actually required, but I did them following a tutorial I found about Android porting... (http://marakana.com/static/courseware/android/Remixing_Android/index.html):
 
 	SIGNER="/C=IT/ST=RM/L=Rome/O=ffxx68/OU=Android/CN=Android Platform Signer/emailAddress=ffumi68@gmail.com"
 	cd $AOSP
@@ -103,15 +94,6 @@ This is the command to verify that all went fine:
 
 I guess these keys are something required to pass the official Android Google certification (though I can't tell for sure).
 
-Notes about projects
---------------------
-
-A number of customized "projects" make up our ROSP, each stored into a different repository, as per the standard AOSP approach.
-
-I meant "Renesas-device_emev" to be the "entry point" to the ROSP, with the present README explaining the basic steps to build the firmware update package from scratch.
-
-Each projects has a "emev-4.1" branch, to track ROSP changes for JB. Another branch "MyPad" was used to track changes for GB instead.
-
 How to push changes back to GitHub
 ----------------------------------
 
@@ -127,7 +109,7 @@ Find help oh GitHub, for admin and access details. E.g.
 
  http://help.github.com/send-pull-requests/
 
-A "Renesas-EMEV2" Oragazization:
+A "Renesas-EMEV2" Organization:
 
  https://github.com/organizations/Renesas-EMEV2
 
@@ -194,9 +176,9 @@ Kernel source code is stored at
 
 and the emev-4.1 branch should be used. Kernel image should be built before building SGX modules and final packaging steps.
 
-See also the configuration documentation in
+See also the corrsponding documentation in
 
- https://github.com/Renesas-EMEV2/Documentation
+ https://github.com/Renesas-EMEV2/Documentation/Kernel.md
 
 Building SGX interface modules
 ------------------------------
@@ -224,21 +206,27 @@ The firmware binaries and libraries managing:
 
 are released only as pre-compiled libraries, source code being proprietary.
 
-All of these are stored in the repository as bineries then, under
+These are stored in the repository as binaries, under
 
- $AOSP/device/renesas/emev/sgx
- $AOSP/device/renesas/emev/omx  
+	$AOSP/device/renesas/emev/sgx
+	$AOSP/device/renesas/emev/omx  
 
-and the build scripts take care of copying into the target locations.
+and the build scripts take care of deploying them to the target locations.
 
-About Bradcom BCM4329 WiFi driver
----------------------------------
+About Broadcom BCM4329 WiFi driver
+----------------------------------
 
-The kernel driver for the BCM4329 Wifi device is provided as a pre-compiled binary only:
+The kernel driver for the BCM4329 Wifi device (hardwired on the "Livall" tablet board and interfaced through the SDIO bus), is provided as a pre-compiled binary only:
 
- wifi/dhd.ko
+	device/emev/wifi/dhd.ko
 
-Source code is proprietary and needs recompiling only in case of major changes to kernel.
+Source code for this is proprietary to Livall and needs recompiling only in case of major changes to the kernel.
+
+Other tablet manufacturers may provide different solutions, like for example a USB WiFi dongle, which may require a different kernel module.
+
+I found this tutorial very useful, about the integration of a WiFi driver in Android: 
+
+ http://blog.linuxconsulting.ro/2010/04/porting-wifi-drivers-to-android.html
 
 Packaging files for a firmware update
 -------------------------------------
@@ -253,20 +241,25 @@ collects the complete Android file system and kernel image and put them into des
 
 The content of this directory then needs to be transferred into the root folder of an SD-card, (max 2Gb size allowed) formatted as FAT16 or FAT32, and the tablet started with teh Vol+ & Power to replace internal NAND firmware.
 
-Note - The script assumes $AOSP and $KERNEL variables are set
+NOTE - The script assumes $AOSP and $KERNEL variables are set to the home dir of the AOSP and Kernel code on your host. E.g.:
+
+	export AOSP=~/renesas/jb
+	export KERNEL=~/renesas/kernel
+
+In order to finally "flash" all this onto your device, we suggest to review the documentation at:
+
+	https://github.com/Renesas-EMEV2/Documentation/
+
+Check out "Preparing an SD card for device firmware update", or "Preparing a "bootable" SD card".
 
 About Google Apps
 -----------------
 
-The AOSP source code comes naked of the most common Google Apps, fond in any tytpical device.
+The (free) AOSP source is missing the most common Google Apps, like Play, GMail, Maps, etc. These are covered by license fees and so are installed on final devices only by manufacturers paying those fees, usually.
 
-These include Market (now Play), GMail, Maps, etc.
-
-Packages with these apps can be found on the net. E.g. see:
+Nonetheless, packages can be found on the net. E.g.:
 
  http://wiki.rootzwiki.com/Google_Apps
 
-The pack.sh script assumes that you have downloaded these separately into a directory named "GoogleApps" under $AOSP/device/renesas/emev
-
-Note - this is NOT a mandatory step, to complete a working build.
+If you have downloaded them (but it isn't mandatory for the script to succeed!), the pack.sh script assumes that you have put the packages into a directory named "GoogleApps", under $AOSP/device/renesas/emev.
 

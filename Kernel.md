@@ -9,14 +9,27 @@ https://groups.google.com/forum/?fromgroups#!forum/renesas-emev-osp
 How to build
 ------------
 
-Have an arm EABI toolchain installed on your host.
+You need an ARM EABI cross-compiler toolchain installed on your host, to build the kernel.
 
-Note - Android AOSP comes with a toolchain included.
+The android AOSP comes with a gcc 4.4.3 toolchain included. If you downloaded the AOSP, you only have to have it included in your PATH. E.g.:
+
+	export PATH=<AOSP home>/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin:$PATH
+
+See also https://github.com/Renesas-EMEV2/Documenation/Android.md, about downaloding AOSP.
+
+Though not mandatory, it is preferrable to use the same toolchain to build both the Andoid and the Kernel binaries.
+
+To build the Kernel just do:
 
 	export CROSS_COMPILER=arm-eabi-  (or the prefix of your toolchain)
 	export ARCH=arm
+	cd <kernel root dir>
 	make <config>  (see below for possible configurations)
 	make
+
+To complete the build, the 'mkimage' tool is required. If you miss it on your host, install with:
+
+	sudo apt-get install uboot-mkimage
 
 Repositories and branches
 -------------------------
