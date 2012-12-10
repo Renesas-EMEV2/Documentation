@@ -195,7 +195,7 @@ which will generate all bootlaoder binaries and move files to destination path, 
 
 A pre-compiled "uImage" is provided here, used with the cramfs to run installation. This uImage may also be rebuild from open source kernel code, found at:
 
-https://github.com/Renesas-EMEV2/RenesasEV2-BSPGB-Kernel
+ https://github.com/Renesas-EMEV2/Kernel
 
 on the 'emev-4.1' branch, using the 'emev_mypad_upd_defconfig' build configuration.
 

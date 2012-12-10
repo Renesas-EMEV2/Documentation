@@ -172,7 +172,7 @@ Building the kernel
 
 Kernel source code is stored at
 
- https://github.com/Renesas-EMEV2/RenesasEV2-BSPGB-Kernel 
+ https://github.com/Renesas-EMEV2/Kernel 
 
 and the emev-4.1 branch should be used. Kernel image should be built before building SGX modules and final packaging steps.
 

@@ -34,9 +34,9 @@ To complete the build, the 'mkimage' tool is required. If you miss it on your ho
 Repositories and branches
 -------------------------
 
-Kernel is stored under this GIT repo on:
+Kernel is stored on the GIT repository at:
 
-https://github.com/Renesas-EMEV2/RenesasEV2-BSPGB-Kernel
+ https://github.com/Renesas-EMEV2/Kernel
 
 The following valid branches exist here at present:
 
