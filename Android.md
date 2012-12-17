@@ -18,7 +18,7 @@ https://github.com/Renesas-EMEV2/Renesas-manifest  (branch emev-4.1)
 
 so, the "repo init" step should be made using this manifest:
 
-	repo init -u https://github.com/Renesas-EMEV2/Renesas-manifest.git -b emev-4.1
+	repo init -u git://github.com/Renesas-EMEV2/Renesas-manifest.git -b emev-4.1
 
 to update the entire set projects to the Jingerbread (4.1) version, plus our customization.
 
