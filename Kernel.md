@@ -6,6 +6,26 @@ More discussion about this can be found on
 
 https://groups.google.com/forum/?fromgroups#!forum/renesas-emev-osp
 
+Downloading
+-------------------------
+
+Kernel code, which is based upon the 2.6.35.7 kernel base version, patched for Android and the Renesas Emma EV2 SoC specific drivers, is stored on the GIT repository at:
+
+ https://github.com/Renesas-EMEV2/Kernel
+
+To download, the easiest way is:
+
+	git clone git@github.com:Renesas-EMEV2/Kernel.git
+
+The following valid branches exist here at present:
+
+* MyPad: valid for Android GingerBread (GB) build
+* emev-4.1: valid for an Android JellyBean (JB) build
+
+So, for example, before building the version valid for JB, you need to check it out:
+
+	git checkout emev-4.1
+
 How to build
 ------------
 
@@ -30,20 +50,6 @@ To build the Kernel just do:
 To complete the build, the 'mkimage' tool is required. If you miss it on your host, install with:
 
 	sudo apt-get install uboot-mkimage
-
-Repositories and branches
--------------------------
-
-Kernel is stored on the GIT repository at:
-
- https://github.com/Renesas-EMEV2/Kernel
-
-The following valid branches exist here at present:
-
-* MyPad: valid for Android GingerBread (GB) build
-* emev-4.1: valid for an Android JellyBean (JB) build
-
-Both are based upon the 2.6.35.7 kernel base version, patched for Android and the Renesas Emma EV2 SoC specific drivers.
 
 Configurations
 --------------
