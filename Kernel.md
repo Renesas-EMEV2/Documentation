@@ -31,13 +31,13 @@ How to build
 
 You need an ARM EABI cross-compiler toolchain installed on your host, to build the kernel.
 
-The android AOSP comes with a gcc 4.4.3 toolchain included. If you downloaded the AOSP, you only have to have it included in your PATH. E.g.:
+The Android Open Source Project (AOSP) comes with a gcc 4.4.3 toolchain included. If you downloaded the AOSP, you only have to have it included in your PATH. E.g.:
 
 	export PATH=<AOSP home>/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin:$PATH
 
-See also https://github.com/Renesas-EMEV2/Documenation/Android.md, about downaloding AOSP.
+See also https://github.com/Renesas-EMEV2/Documentation/Android.md, about downloading AOSP.
 
-Though not mandatory, it is preferrable to use the same toolchain to build both the Andoid and the Kernel binaries.
+Though not mandatory, I'd suggest to use the same toolchain to build both the Android and the Kernel binaries.
 
 To build the Kernel just do:
 
@@ -54,22 +54,21 @@ To complete the build, the 'mkimage' tool is required. If you miss it on your ho
 Configurations
 --------------
 
-We prefer not to branch new kernel versions, unless we are going to move to a major kernal release, like 3.8 or newer. Additional customizations on top of this base version, covering different board manufacturing and device peripherals, should be handled through confguration options. 
+We prefer not to branch new kernel versions on our git repository, unless we are going to move to a major kernel release, like 3.8 or newer. Additional customizations on top of this base version, covering different board manufacturing and device peripherals, should be handled through confguration options. 
 
 The major default configurations defined for the Renesas EMEV platforms, up to now, are the following:
 
 * emev_mypad_gb_defconfig
 
-For a "Livall" tablet board, for Android GB build, with PixCir touchscren driver. Note, the Goodix GT801 touchscrenn driver code is present and can be choosen with 'make menuconfig', selecting it from drivers-input-touchcreens and unselecting the PixCir one.
+For a "Livall" tablet board, for an Android GB build, with a PixCir touchscren driver by default. Note, the Goodix GT801 touchscrewn driver code is present too and can be choosen with 'make menuconfig', selecting it from drivers-input-touchcreens and unselecting the PixCir one.
 
 * emev_mypad_jb_defconfig
 
-For a "Livall" tablet board, for Android JB build, with GT801 touchscreen driver. Note, the PixCir touchscrenn driver code is present and can be choosen with 'make menuconfig' selecting it from drivers-input-touchcreens and unselecting the Goodix one.
+For a "Livall" tablet board, for an Android JB build, with a Goodix GT801 touchscreen driver by default. Note, the PixCir touchscreen driver code is present too and can be choosen with 'make menuconfig' selecting it from drivers-input-touchcreens and unselecting the Goodix one.
 
 * emev_mypad_upd_defconfig
 
-For a Livall tablet board, for a cramfs Linux (Wind River), used during firmware update from SD-card.
-See also Bootloader docs.
+For a Livall tablet board, for a cramfs Linux (Wind River), used during firmware update from SD-card. See also Bootloader docs about this (https://github.com/Renesas-EMEV2/Documentation/Bootloader.md)
 
 
 
