@@ -72,11 +72,25 @@ There will be different possible boot arguments set up u-boot, whose definitions
 	#endif
 	...
 
-Hence, for different build configurations:
+Build configurations
+--------------------
 
 * emev_emmc_config -> starts "ext3cmd" with root fs set to /dev/mmcblk0p3 (the internal eMMC NAND, partition 3)
 * emev_sd_config -> starts "cramfscmd" with root fs set to /dev/mmcblk1p3 (the external SD-card Flash, partition 3)
+* emev_sd_line_config -> 
 * emev_sdtest_config -> starts "ext3cmd" with root fs set to /dev/mmcblk1p3 (the external SD-card Flash, partition 3)
+* emev_emmc_2ddr_config -> same as emev_emmc_configbut for a 2DDR model board (applied to _sd_ and _sdtest_
+
+emev_emmc_config is used for emmc boot mode. The 1st partation include image of uboot-emmc.bin. The 2nd partation include image of kernel. (uImage). 3rd image is default boot image.
+
+emev_sd_config is used for booting from SD card, which must include a MBR and the 1st partation must set partation type 0x6(FAT16) in MBR 1st image should formatted to FAT16 format (use "-F 16" parameter with mkfs.vfat). sdboot.bin, uboot-sd.bin and uImage are placed on root directory of 1st partation and they will be loaded in memory by u-boot. The 2nd partation is used to store u-boot environments, if there is no 2nd partition, device can still boot, but can not save environment variables. By default, the 3rd partation is used as root directory.
+
+emev_sd_line is used for boot from SD card. The difference with emev_sd_config is an extera "cramfs" file is loaded to phyical address
+0x46000000-0x4800000000
+
+emev_sdtest_config is used to boot from SD card the complete filesystem, which should be found in 3rd partition. See below for more details.
+
+emev_emmc_2ddr_config is used for older boards, having 2 DDR chips (newer model have 4 chip). The _2ddr_ option can be used along with the other configuratons as well.
 
 Build Examples
 --------------
