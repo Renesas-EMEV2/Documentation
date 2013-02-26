@@ -7,27 +7,28 @@ More discussion about this can be found on
 
 https://groups.google.com/forum/?fromgroups#!forum/renesas-emev-osp
 
-Basic BUILD steps
+Basic build steps
 =================
 
-* Follow instructions to setup your env, download and build AOSP, as in 
+1) Setup up your system with all required tools, download our customized AOSP code and build, as explained in:
 
  https://github.com/Renesas-EMEV2/Documentation/Android.md
 
-* Follow instructions to download and build Kernel, as in 
+2) Download Kernel code, choose branch, configuration and build, as explained in:
 
  https://github.com/Renesas-EMEV2/Documentation/Kernel.md
 
-* Follow instructions to download Bootloader, as in 
+3) Download bootloader code, as explained in:
 
  https://github.com/Renesas-EMEV2/Documentation/Bootloader.md
 
-* Package the Android file system
+4) Package the Android file system:
 
-	cd <AOSP home dir>/device/renesas/emev
-	./pack.sh <bootloader home dir>/fwupd/files
+    cd <AOSP home dir>/device/renesas/emev
+    ./pack.sh <bootloader home dir>/fwupd/files
 
-* Prepare the firmware updater SD-card
+5) Prepare the firmware updater SD-card:
 
-	cd <bootloader home>/fwupd
-	./fwupd <SD card root dir>
+    cd <bootloader home>/fwupd
+    ./fwupd <SD card root dir>
+
