@@ -32,3 +32,4 @@ Basic build steps
     cd <bootloader home>/fwupd
     ./fwupd <SD card root dir>
 
+
