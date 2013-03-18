@@ -40,7 +40,7 @@ The Android Open Source Project (AOSP) comes with a gcc 4.4.3 toolchain included
 
 	export PATH=<AOSP home>/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin:$PATH
 
-See also https://github.com/Renesas-EMEV2/Documentation/Android.md, about downloading AOSP.
+See also https://github.com/Renesas-EMEV2/Documentation/blob/emev-4.1/Android.md, about downloading AOSP.
 
 Though not mandatory, I'd suggest to use the same toolchain to build both the Android and the Kernel binaries.
 
@@ -63,25 +63,21 @@ We prefer not to branch new kernel versions on our git repository, unless we are
 
 On top of a default configuration, something else could also be changed through the kernel standard tool 'make menuconfig', before building. For example, default configuration defines a touchscreen driver, but we have tablets mounting different touchscreens: e.g. PixCir or Goodix. You need to choose the proper driver before building.
 
-The major default configurations defined up to now are the following:
+The major default configurations in the "Livall_JB" branch are the following:
 
 * emev_Livall_JB_defconfig
 
-Found in the "Livall_JB" branch. For a "Livall" tablet board and an Android JB build, with a PixCir "Tango M48" touchscreen driver selected by default. Note, the Goodix GT801 touchscreen driver code is present too and may be choosen with: 'make menuconfig' -> drivers -> input -> touchscreens, un-selecting PixCir and selecting Goodix.
+for a "Livall" tablet board and an Android JB build, with a PixCir "Tango M48" touchscreen driver selected by default. Note, the Goodix GT801 touchscreen driver code is present too and may be choosen with: 'make menuconfig' -> drivers -> input -> touchscreens, un-selecting PixCir and selecting Goodix.
 
-* emev_mypad_upd_defconfig
+* emev_Livall_upd_defconfig
 
-Found in the "emev-4.1" branch. For a Livall tablet board and used along cramfs Linux (Wind River), for firmware updates from SD-card. See also Bootloader docs about this (https://github.com/Renesas-EMEV2/Documentation/Bootloader.md)
+for a Livall tablet board and used along cramfs Linux (Wind River) for firmware updates from SD-card. See also Bootloader docs about this (https://github.com/Renesas-EMEV2/Documentation/blob/emev-4.1/Bootloader.md)
 
-* emev_Livall_defconfig
+* emev_Livall_GB_defconfig
 
-Found in the "Livall_GB" branch. For a "Livall" tablet board and PixCir touchscren driver, for an Android GB build.
+for a "Livall" tablet board and PixCir touchscren driver, for an Android GB build.
 
-* emev_mypad_gb_defconfig
-
-Found in the "emev-4.1" branch. For a "Livall" tablet board and an Android GB build (PixCir touchscren driver by default; Goodix choosen 
-as with emev_Livall_JB_defconfig).
-
+The older "emev-4.1" branch include "emev_mypad_*" configurations, but they're not mantained anymore.
 
 
 

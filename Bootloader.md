@@ -211,13 +211,13 @@ A pre-compiled "uImage" is provided here, used with the cramfs to run installati
 
  https://github.com/Renesas-EMEV2/Kernel
 
-on the 'emev-4.1' branch, using the 'emev_mypad_upd_defconfig' build configuration.
+on the 'Livall_JB' branch, using the 'emev_Livall_upd_defconfig' build configuration.
 
 NOTE - The android file system (android-fs4.tar.gz) and final kernel image (uImage4) are not included here and should be put into fwupd/files before running the script.
 
 See also the android fs packaging procedure, described at:
 
-https://github.com/Renesas-EMEV2/Documentation/Android.md
+https://github.com/Renesas-EMEV2/Documentation/blob/emev-4.1/Android.md
 
 Preparing a "bootable" SD card
 ------------------------------
