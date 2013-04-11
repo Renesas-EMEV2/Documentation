@@ -197,19 +197,17 @@ I wish one day this step is integrated within the main Android build.
 About OMX and SGX binaries
 --------------------------
 
-**THIS HAS TO BE TESTED YET**
-
 The firmware binaries and libraries managing:
 
- - 3D-graphics accelerator (SGX)
- - the video encoder/decoder (OMX)
+ - 3D and graphics accelerator (SGX)
+ - the video decoder (OMX)
 
 are released only as pre-compiled libraries, source code being proprietary.
 
 These are stored in the repository as binaries, under
 
 	$AOSP/device/renesas/emev/sgx
-	$AOSP/device/renesas/emev/omx  
+	$AOSP/device/renesas/emev/omf  
 
 and the build scripts take care of deploying them to the target locations.
 
