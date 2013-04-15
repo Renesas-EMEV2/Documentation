@@ -46,7 +46,7 @@ Though not mandatory, I'd suggest to use the same toolchain to build both the An
 
 To build the Kernel, just do:
 
-	export CROSS_COMPILER=arm-eabi-  (or the prefix of your toolchain, if you use a different one)
+	export CROSS_COMPILE=arm-eabi-  (or the prefix of your toolchain, if you use a different one)
 	export ARCH=arm
 	cd <kernel root dir>
 	make emev_Livall_JB_defconfig    (see below for other possible configurations)
