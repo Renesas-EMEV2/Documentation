@@ -1,0 +1,440 @@
+
+  24 Jan 2013
+
+ http://www.slideshare.net/gxben/android-device-porting-walkthrough - page 39
+
+Audio Subsystem
+
+• In BoardConfig.mk: 
+
+BOARD_USES_GENERIC_AUDIO := false 
+#BOARD_USES_ALSA_AUDIO := false 
+BUILD_WITH_ALSA_UTILS := false
+
+• MUST implement Audio HAL 
+- See hardware/libhardware/modules/audio for example. 
+- MUST declare as AUDIO_HARDWARE_MODULE_ID. 
+- MUST implement audio HAL API; see hardware/libhardware/include/hardware/audio.h. 
+- Implements 
+ audio in/out, 
+ volume get/set, 
+ mute get/set, gain get/set, 
+ list and configure all supported in/out devices, 
+ open/close input/output streams, 
+ configure mixer and router, 
+ add/remove audio effects (e.g. Automatic Gain Control and Acoustic Echo Cancellation). 
+
+- MUST link against TinyALSA (new in ICS). 
+- To be implemented in: device/my_company/my_device/audio/audio_hw.c 
+- MUST be declared in LOCAL_MODULE as "audio.primary.${ro.product.board}" 
+    e.g. : audio.primary.omap4
+
+• See http://goo.gl/zPFQ8 for example.
+
+--------------------------
+
+Looking at the example above, for the OMAP platform, we apparently "only" need an equivalent for "audio/audio_hw.c". 
+I copied this exmpaple as a reference into:
+
+ device/renesas/emev/audio/audio_hw_omap.c
+ 
+I also pulled out of the ICS ALSA-lib patch (commit-a3fa6e1) this file:
+
+  hardware/alsa_sound/audio_hw_hal.cpp
+
+into
+  
+ device/renesas/emev/audio/audio_hw_hal.cpp
+
+Note how the same file "audio_hw_hal.cpp" is found also in
+
+ hardware/libhardware_legacy/audio/audio_hw_hal.cpp
+
+but they differ in several points, probably due to the differnt version (patch was for ICS, hardware/ was from JB).
+
+Both the OMAP example and audio_hw_hal.cpp implement the HAL_MODULE_INFO_SYM structure, which is "all" we need (I think!).
+
+audio_hw_omap.c includes <tinyalsa/asoundlib.h>
+
+audio_hw_hal.cpp makes use of libraries from hardware/libhardware_legacy/audio
+
+Let's compare how one of the methods needed by HAL_MODULE_INFO_SYM is implemented by the tinyalsa example, with respect to the audio_hw_hal.cpp.
+
+audio_hw_omap.c:
+---------------------------
+static int adev_open(const hw_module_t* module, const char* name,
+                     hw_device_t** device)
+{
+    struct pandaboard_audio_device *adev;
+    int ret;
+
+    if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0)
+        return -EINVAL;
+
+    adev = calloc(1, sizeof(struct pandaboard_audio_device));
+    if (!adev)
+        return -ENOMEM;
+
+    adev->hw_device.common.tag = HARDWARE_DEVICE_TAG;
+    adev->hw_device.common.version = 0;
+    adev->hw_device.common.module = (struct hw_module_t *) module;
+    adev->hw_device.common.close = adev_close;
+...
+    adev->mixer = mixer_open(0);
+    if (!adev->mixer) {
+        free(adev);
+        LOGE("Unable to open the mixer, aborting.");
+        return -EINVAL;
+    }
+...
+
+---------------------------
+
+ audio_hw_hal.cpp
+---------------------------
+static int legacy_adev_open(const hw_module_t* module, const char* name,
+                            hw_device_t** device)
+{
+    struct legacy_audio_device *ladev;
+    int ret;
+
+    if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0)
+        return -EINVAL;
+
+    ladev = (struct legacy_audio_device *)calloc(1, sizeof(*ladev));
+    if (!ladev)
+        return -ENOMEM;
+
+    ladev->device.common.tag = HARDWARE_DEVICE_TAG;
+    ladev->device.common.version = 0;
+    ladev->device.common.module = const_cast<hw_module_t*>(module);
+    ladev->device.common.close = legacy_adev_close;
+...
+    ladev->hwif = createAudioHardware();
+    if (!ladev->hwif) {
+        ret = -EIO;
+        goto err_create_audio_hw;
+    }
+...
+---------------------------
+
+The first significant difference (except for the naming for the two internal structure members) is that:
+
+ mixer_open is defined in: external/tinyalsa/mixer.c
+ 
+ createAudioHardware is defined in: hardware/alsa_sound/AudioHardwareALSA.cpp
+
+Hence, implementation relies on entirely different libraries in the two cases and adapting audio_hw_hal.cpp to make it "similar" to audio_hw_omap.c is not practical.
+
+--------------------
+
+Another approach could be to strictly follow the OMAP example above, modifying audio_hw.c to adapt to our EMEV device.
+
+I'll take device/ti/panda/audio from JB AOSP as a starting point, and follow the example a
+
+---------------------
+
+One think to adapt to our platoform is the following:
+
+static int get_boardtype(struct omap4_audio_device *adev)
+{
+    char board[PROPERTY_VALUE_MAX];
+    int status = 0;
+    int board_type = 0;
+
+    LOGFUNC("%s(%p)", __FUNCTION__, adev);
+    ...
+    property_get(PRODUCT_DEVICE_PROPERTY, board, PRODUCT_DEVICE_BLAZE);
+    ...
+
+where 
+
+#define PRODUCT_DEVICE_PROPERTY "ro.product.device"
+
+and get_boardtype is compared against possible "supported" values, i.e.
+
+#define PRODUCT_DEVICE_BLAZE    "blaze"
+#define PRODUCT_DEVICE_TABLET   "blaze_tablet"
+#define PRODUCT_DEVICE_PANDA    "panda"
+
+So, probably one of the definition above needs to be changed to our EMEV device value, to force the HAL supporting it. E.g.
+
+#define PRODUCT_DEVICE_PANDA    "emev"
+
+Which one is "more" compatile with our device needs to be assessed with testing. Then, we could add a new definition for EMEV if we like.
+
+--------------------
+
+One thing I think need adaptation (or verification) for our platform are the following defines:
+
+/* ALSA cards */
+#define CARD_EMEV_ABE 0
+#define CARD_EMEV_HDMI 1
+#define CARD_EMEV_USB 1
+#define CARD_EMEV_DEFAULT CARD_EMEV_ABE
+
+/* ALSA ports */
+#define PORT_MM 0
+#define PORT_MM2_UL 1
+#define PORT_VX 2
+#define PORT_TONES 3
+#define PORT_VIBRA 4
+#define PORT_MODEM 5
+#define PORT_MM_LP 6
+#define PORT_SPDIF 9
+#define PORT_HDMI 0
+
+These values are used when opening the PCM device (using pcm_open() from tinyalsa lib):
+
+     out->pcm = pcm_open(card, port, PCM_OUT | PCM_MMAP | PCM_NOIRQ, &out->config);
+
+where pcm_open() does the following:
+ 
+   snprintf(fn, sizeof(fn), "/dev/snd/pcmC%uD%u%c", card, device, flags & PCM_IN ? 'c' : 'p');
+   pcm->fd = open(fn, O_RDWR);
+
+So, I neeed to check what devices are created by our kernel. These are:
+
+root@android:/ # ls -l /dev/snd
+crw-rw---- system   audio     14,   4 1970-01-01 00:00 audio
+crw-rw---- system   audio    116,   0 1970-01-01 00:00 controlC0
+crw-rw---- system   audio     14,   3 1970-01-01 00:00 dsp
+crw-rw---- system   audio    116,   4 1970-01-01 00:00 hwC0D0
+crw-rw---- system   audio    116,  24 1970-01-01 00:00 pcmC0D0c
+crw-rw---- system   audio    116,  16 1970-01-01 00:00 pcmC0D0p
+crw-rw---- system   audio    116,  33 1970-01-01 00:00 timer
+
+Hence, we only get card "0" (the default one; the HDMI driver is missing yet form the kernel) and device (=port) 0.
+
+The only port different from 0 used in audio_hw.c are
+
+ PORT_MM2_UL
+ PORT_MM_LP
+
+all the rest are unused in the code.
+
+One thing is evidently different in our device, as the input is on /dev/snd/pcmC0D0c, hence on port 0.
+
+I replaced PORT_MM2_UL with PORT_MM in PORT_MM2_UL 
+
+-----------
+
+One thing to verify with our device, is how to set the list of supported devices, here:
+
+static uint32_t adev_get_supported_devices(const struct audio_hw_device *dev)
+{
+    return (/* OUT */
+            AUDIO_DEVICE_OUT_EARPIECE |
+            AUDIO_DEVICE_OUT_SPEAKER |
+            AUDIO_DEVICE_OUT_WIRED_HEADSET |
+            AUDIO_DEVICE_OUT_WIRED_HEADPHONE |
+            AUDIO_DEVICE_OUT_AUX_DIGITAL |
+            AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET |
+            AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET |
+            AUDIO_DEVICE_OUT_ALL_SCO |
+            AUDIO_DEVICE_OUT_DEFAULT |
+            /* IN */
+            AUDIO_DEVICE_IN_COMMUNICATION |
+            AUDIO_DEVICE_IN_AMBIENT |
+            AUDIO_DEVICE_IN_BUILTIN_MIC |
+            AUDIO_DEVICE_IN_WIRED_HEADSET |
+            AUDIO_DEVICE_IN_AUX_DIGITAL |
+            AUDIO_DEVICE_IN_BACK_MIC |
+            AUDIO_DEVICE_IN_ALL_SCO |
+            AUDIO_DEVICE_IN_DEFAULT);
+}
+
+Comparing with our ICS patch audio_hw_hal.cpp, the list looks exactly the same.
+
+-----------
+
+All the rest need testing / deugging, as specific properties (sample rates, etc) *may* differ...
+
+-----------
+
+Another point is changing the naming convention:
+
+ struct omap4_...  becomes  struct emev_...
+
+-----------
+
+First build made. Need to test now on the real device !!!
+
+-----------
+
+ 25 Jan 
+
+On boot logcat shows these messages:
+
+I/AudioPolicyManagerBase(   75): loadAudioPolicyConfig() loaded /system/etc/audio_policy.conf
+E/audio_hw_primary(   75): Unable to locate all mixer controls, aborting.
+E/AudioFlinger(   75): int android::load_audio_interface(char const*, audio_hw_device_t**) couldn't open audio hw device in audio.primary (Invalid argument)
+I/AudioFlinger(   75): loadHwModule() error -22 loading module primary 
+W/AudioPolicyManagerBase(   75): could not open HW module primary
+E/AudioFlinger(   75): int android::load_audio_interface(char const*, audio_hw_device_t**) couldn't load audio hw module audio.a2dp (No such file or directory)
+I/AudioFlinger(   75): loadHwModule() error -2 loading module a2dp 
+W/AudioPolicyManagerBase(   75): could not open HW module a2dp
+E/AudioPolicyManagerBase(   75): Not output found for attached devices 00000003
+E/AudioPolicyManagerBase(   75): Failed to open primary output
+E/AudioPolicyManagerBase(   75): getDeviceForStrategy() speaker device not found for STRATEGY_SONIFICATION
+E/AudioPolicyManagerBase(   75): getDeviceForStrategy() speaker device not found for STRATEGY_SONIFICATION 
+
+Very first error message:
+
+E/audio_hw_primary(   75): Unable to locate all mixer controls, aborting.
+
+comes from audio_hw.c, for a failed load of one of the "mixer-controls". E.g.
+
+     adev->mixer_ctls.dl1_eq = mixer_get_ctl_by_name(adev->mixer, MIXER_DL1_EQUALIZER);
+
+Need to verify what controls are supported by our device...
+
+ --------
+
+Adding debug logs to tinyalsa/mixer.c, in mixer_open(); I got these "controls"
+
+Mixer 0 control  0: 'OFF'
+Mixer 0 control  1: 'MIC_normal'
+Mixer 0 control  2: 'MIC_ringtone'
+Mixer 0 control  3: 'MIC_incall'
+Mixer 0 control  4: 'Headset_normal'
+Mixer 0 control  5: 'Headset_ringtone'
+Mixer 0 control  6: 'Headset_incall'
+Mixer 0 control  0: '7.35kHz'
+Mixer 0 control  1: '8kHz'
+Mixer 0 control  2: '11.025kHz'
+Mixer 0 control  3: '12kHz'
+Mixer 0 control  4: '14.7kHz'
+Mixer 0 control  5: '16kHz'
+Mixer 0 control  6: '22.05kHz'
+Mixer 0 control  7: '24kHz'
+Mixer 0 control  8: '29.4kHz'
+Mixer 0 control  9: '32kHz'
+Mixer 0 control 10: '44.1kHz'
+Mixer 0 control 11: '48kHz'
+Mixer 1 control  0: 'OFF'
+Mixer 1 control  1: 'Speaker_normal'
+Mixer 1 control  2: 'Speaker_ringtone'
+Mixer 1 control  3: 'Speaker_incall'
+Mixer 1 control  4: 'Earpiece_ringtone'
+Mixer 1 control  5: 'Earpiece_incall'
+Mixer 1 control  6: 'Headset_normal'
+Mixer 1 control  7: 'Headset_ringtone'
+Mixer 1 control  8: 'Headset_incall'
+
+These correspond to the strings defined in the ALC kernel driver:
+
+/* Capture */
+static const char *in_sw_control_texts[] = {
+	"OFF", "MIC_normal", "MIC_ringtone", "MIC_incall", "Headset_normal", "Headset_ringtone", "Headset_incall"
+};
+
+/* Sampling freq */
+static const char *fs_sw_control_texts[] = {
+	"7.35kHz", "8kHz", "11.025kHz", "12kHz", "14.7kHz", "16kHz",
+	"22.05kHz", "24kHz", "29.4kHz", "32kHz", "44.1kHz", "48kHz"
+};
+
+/* Output */
+static const char *out_sw_control_texts[] = {
+	"OFF", "Speaker_normal", "Speaker_ringtone", "Speaker_incall", "Earpiece_ringtone", "Earpiece_incall", "Headset_normal", "Headset_ringtone", "Headset_incall"
+};
+
+
+which are very different from the list expected by code in OMAP example:
+
+#define MIXER_DL1_EQUALIZER                 "DL1 Equalizer"
+#define MIXER_DL1_MIXER_MULTIMEDIA          "DL1 Mixer Multimedia"
+#define MIXER_DL1_MONO_MIXER                "DL1 Mono Mixer"
+#define MIXER_DL2_MIXER_MULTIMEDIA          "DL2 Mixer Multimedia"
+#define MIXER_DL2_MIXER_VOICE               "DL2 Mixer Voice"
+#define MIXER_DL2_MONO_MIXER                "DL2 Mono Mixer"
+#define MIXER_DL1_PDM_SWITCH                "DL1 PDM Switch"
+#define MIXER_DL1_BT_VX_SWITCH              "DL1 BT_VX Switch"
+...
+
+------------
+
+Looking at a different example, as a starting point:
+
+ device/asus/grouper/audio
+
+I fixed my .mk files, changed MIXER_CARD to 0, and it goes just fine on our device !!!
+
+-------------
+
+After rebuild it doesn't wokr anymore ! No audio.
+
+Trying to redo what I did before, to make it work ...
+
+Here's latest commands I run, before last build:
+
+ 2435  jb
+ 2436  lunch 8
+ 2437  make
+ 2438  mv device/renesas/emev/audio_OMAP/Android.mk device/renesas/emev/audio_OMAP/Android.xx
+ 2439  make
+ 2440  ls -l out/target/product/emev/system/lib/hw/
+ 2441  cp out/target/product/emev/system/lib/hw/*.so /media/androidfs4/system/lib/hw
+ 2442  cp out/target/product/emev/system/lib/libtinyalsa.so /media/androidfs4/system/lib/libtinyalsa.so 
+ 2443  cp device/asus/grouper/mixer_paths.xml system/etc/mixer_paths.xml
+ 2444  cp device/asus/grouper/mixer_paths.xml /media/androidfs4/system/etc/mixer_paths.xml
+ 2445  cp device/asus/grouper/audio_policy.conf /media/androidfs4/system/etc/audio_policy.conf
+ 2446  cp device/asus/grouper/audio_policy.conf device/renesas/emev/audio/audio_policy.conf
+ 2447  sync
+ 2448  devr
+ 2449  cd audo
+ 2450  cd audio
+ 2451  ls
+ 2452  gedit audio_route.c  &
+ 2453  jb
+ 2454  make
+ 2455  cp out/target/product/emev/system/lib/hw/audio.primary.emxx.so /media/androidfs4/system/lib/hw/audio.primary.emxx.so
+
+The build that worked was done from on the bootable SD (/media/androidfs4). 
+
+Copying again the same files (steps 2441-2446):
+
+cp out/target/product/emev/system/lib/hw/*.so /media/androidfs4/system/lib/hw
+cp out/target/product/emev/system/lib/libtinyalsa.so /media/androidfs4/system/lib/libtinyalsa.so 
+cp device/asus/grouper/mixer_paths.xml system/etc/mixer_paths.xml
+cp device/asus/grouper/mixer_paths.xml /media/androidfs4/system/etc/mixer_paths.xml
+cp device/asus/grouper/audio_policy.conf /media/androidfs4/system/etc/audio_policy.conf
+cp device/asus/grouper/audio_policy.conf device/renesas/emev/audio/audio_policy.conf
+
+and re-testing... Same results. No audio!
+
+I think I used a different Android fs. Maybe the ICS?
+
+---------------
+
+My ALC5621 kernel driver includes these control definitions:
+
+static struct snd_kcontrol_new emxx_codec_controls[] = {
+    EMXX_CODEC_INTEGER("DAC Volume", 0, MIXER_VOL_DAC),
+    EMXX_CODEC_INTEGER("Headphone Volume", 0, MIXER_VOL_HP),
+    EMXX_CODEC_INTEGER("Speaker Volume", 0, MIXER_VOL_SPK),
+    EMXX_CODEC_INTEGER("MIC1 Volume", 0, MIXER_VOL_MIC1),
+    EMXX_CODEC_INTEGER("MIC2 Volume", 0, MIXER_VOL_MIC2),
+    EMXX_CODEC_INTEGER("AUXIN Volume", 0, MIXER_VOL_AUXIN),
+    EMXX_CODEC_INTEGER("AUXOUT Volume", 0, MIXER_VOL_AUXOUT),
+    EMXX_CODEC_ENUM("Capture Switch", 0, MIXER_SW_CAPTURE),
+    EMXX_CODEC_ENUM("Sampling Rate Switch", 0, MIXER_SW_SAMPLING_RATE),
+    EMXX_CODEC_ENUM("Playback Switch", 0, MIXER_SW_PLAYBACK),
+    EMXX_CODEC_BOOLEAN("CODEC Power Switch", 0, MIXER_SW_CODEC_POWER_BL),
+};
+
+("snd_kcontrol_new" is a standard structure, used by grouper rt5640 as well).
+
+Values are selected from these sets, respectively:
+
+  "Playback Switch" ->  "OFF", "Speaker_normal", "Speaker_ringtone", "Speaker_incall", "Earpiece_ringtone", "Earpiece_incall", "Headset_normal", "Headset_ringtone", "Headset_incall"
+  "Capture Switch" ->  "OFF", "MIC_normal", "MIC_ringtone", "MIC_incall", "Headset_normal", "Headset_ringtone", "Headset_incall"
+  "Sampling Rate Switch" ->  "7.35kHz", "8kHz", "11.025kHz", "12kHz", "14.7kHz", "16kHz", "22.05kHz", "24kHz", "29.4kHz", "32kHz", "44.1kHz", "48kHz"
+   "CODEC Power Switch" -> 0, 1
+
+I'm now going to map these in mixer_paths.xml.
+
+---------------
+
+After a few fixes, I also removed some more audio errors coming out in logcat...

@@ -1,0 +1,337 @@
+
+
+ Integrating Bluetooth 
+
+ ------------------------
+
+https://groups.google.com/forum/#!msg/pandaboard/xyywEhFEwV8/AfkebAB85BUJ
+
+1. enable CONFIG_BT_HCIBTUSB in kernel - NO! (for USB devices only)
+
+2. in BoardConfig.mk
+
+BOARD_HAVE_BLUETOOTH := true
+
+3. in device.mk add 
+
+PRODUCT_COPY_FILES += \
+	system/bluetooth/data/main.nonsmartphone.conf:system/etc/bluetooth/main.conf
+
+4. in init.omap4pandaboard.rc add 
+# change permissions for Bluetooth/FM/GPS
+    chmod 0660 /sys/class/rfkill/rfkill0/state
+    chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state
+
+if bluetooth is on rfkill0.
+
+ -----------
+
+The following is the deamon service startup from init.rc:
+
+service bluetoothd /system/bin/bluetoothd -n
+    class main
+    socket bluetooth stream 660 bluetooth bluetooth
+    socket dbus_bluetooth stream 660 bluetooth bluetooth
+    # init.rc does not yet support applying capabilities, so run as root and
+    # let bluetoothd drop uid to bluetooth with the right linux capabilities
+    group bluetooth net_bt_admin misc
+    disabled
+
+Starting form commadline gives these errors:
+
+root@android:/ # bluetoothd -n -d
+bluetoothd[838]: Bluetooth deamon 4.93
+bluetoothd[838]: external/bluetooth/bluez/src/main.c:parse_config() parsing main.conf
+bluetoothd[838]: external/bluetooth/bluez/src/main.c:parse_config() discovto=120
+bluetoothd[838]: external/bluetooth/bluez/src/main.c:parse_config() pairto=0
+bluetoothd[838]: external/bluetooth/bluez/src/main.c:parse_config() pageto=8192
+bluetoothd[838]: external/bluetooth/bluez/src/main.c:parse_config() name=%m
+bluetoothd[838]: external/bluetooth/bluez/src/main.c:parse_config() class=0x0a0110
+bluetoothd[838]: external/bluetooth/bluez/src/main.c:parse_config() discov_interval=30
+bluetoothd[838]: external/bluetooth/bluez/src/main.c:parse_config() deviceid=android:generic:1.5
+bluetoothd[838]: external/bluetooth/bluez/src/main.c:parse_config() default_link_policy=7
+bluetoothd[838]: Starting SDP server
+bluetoothd[838]: opening L2CAP socket: Operation not permitted
+bluetoothd[838]: Server initialization failed
+bluetoothd[838]: external/bluetooth/bluez/src/plugin.c:plugin_init() Loading builtin plugins
+bluetoothd[838]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading hciops plugin
+bluetoothd[838]: external/bluetooth/bluez/src/plugin.c:plugin_init() Loading plugins /system/lib/bluez-plugin
+bluetoothd[838]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading audio plugin
+bluetoothd[838]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading health plugin
+bluetoothd[838]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading network plugin
+bluetoothd[838]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading input plugin
+bluetoothd[838]: Failed to open control socket: Operation not permitted (1)
+bluetoothd[838]: Can't init bnep module
+bluetoothd[838]: Failed to init network plugin
+bluetoothd[838]: external/bluetooth/bluez/plugins/hciops.c:hciops_init() 
+bluetoothd[838]: external/bluetooth/bluez/plugins/hciops.c:hciops_setup() 
+bluetoothd[838]: Can't open HCI socket: Operation not permitted (1)
+bluetoothd[838]: adapter_ops_setup failed
+
+
+A few messages seems to be the reason (not sure if related one each other):
+
+1 - opening L2CAP socket: Operation not permitted
+2 - Failed to open control socket: Operation not permitted
+3 - Can't open HCI socket: Operation not permitted
+
+Some posts suggest about removing CONFIG_ANDROID_PARANOID_NETWORK from kernel...
+
+Recompiled with: CONFIG_ANDROID_PARANOID_NETWORK=n actually removed those errors:
+
+root@android:/ # bluetoothd -n -d
+bluetoothd[825]: Bluetooth deamon 4.93
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:parse_config() parsing main.conf
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:parse_config() discovto=120
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:parse_config() pairto=0
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:parse_config() pageto=8192
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:parse_config() name=%m
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:parse_config() class=0x0a0110
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:parse_config() discov_interval=30
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:parse_config() deviceid=android:generic:1.5
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:parse_config() default_link_policy=7
+bluetoothd[825]: Starting SDP server
+bluetoothd[825]: Unable to get the control socket for 'bluetooth'
+bluetoothd[825]: Server initialization failed
+bluetoothd[825]: external/bluetooth/bluez/src/plugin.c:plugin_init() Loading builtin plugins
+bluetoothd[825]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading hciops plugin
+bluetoothd[825]: external/bluetooth/bluez/src/plugin.c:plugin_init() Loading plugins /system/lib/bluez-plugin
+bluetoothd[825]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading audio plugin
+bluetoothd[825]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading health plugin
+bluetoothd[825]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading network plugin
+bluetoothd[825]: external/bluetooth/bluez/src/plugin.c:add_plugin() Loading input plugin
+bluetoothd[825]: external/bluetooth/bluez/plugins/hciops.c:hciops_init() 
+bluetoothd[825]: external/bluetooth/bluez/plugins/hciops.c:hciops_setup() 
+bluetoothd[825]: external/bluetooth/bluez/src/main.c:main() Entering main loop
+bluetoothd[825]: external/bluetooth/bluez/plugins/hciops.c:init_known_adapters() 
+
+... and it keeps waiting there, until I interrupt with ^C
+
+Testing bluetooth still has this error: rfkill sets power, but HCI is not found:
+
+root@android:/ # bttest enable
+
+-> dmesg:
+BT_RFKILL emev_rfkill_set_radio_block:53: Rfkill bt set power: 0
+BT_RFKILL emev_rfkill_set_radio_block:67: rfkill bt Unblocked
+init: no such service 'hciattach'
+
+ - - - - 
+
+I miss these service in my init.emxx.rc:
+
+service hciattach /system/bin/brcm_patchram_plus \
+    --enable_hci --enable_lpm \
+    --baudrate 1500000 \
+    --patchram /system/etc/firmware/bcm4329.hcd /dev/ttyS1
+    class main
+    user bluetooth
+    group bluetooth net_bt_admin
+    disabled
+
+(Got from GB init.rc; other examples in device/...)
+
+I also miss the binary "brcm_patchram_plus", which I have to enable the build setting this in BoardConfig.mk:
+
+ BOARD_HAVE_BLUETOOTH_BCM := true
+
+Fixed device.mk (to push bcm4329.hcd file) and init.emxx.sh (to add hciattach) - rebuild...
+
+ - - - -
+
+Now I can enable BT manually :
+
+root@android:/ # bttest enable                                                 
+enable
+= 0
+
+ dmesg:
+BT_RFKILL emev_rfkill_set_radio_block:53: Rfkill bt set power: 0
+BT_RFKILL emev_rfkill_set_radio_block:67: rfkill bt Unblocked
+
+ logcat:
+...
+E/brcm_patchram_plus(  694): Done setting line discpline
+I/bluedroid(  693): bt_enable: ret: 0, errno: 19
+I/bluedroid(  693): Starting bluetoothd deamon
+
+But BT is not found in Settings yet and when trying to enable from the Power Widget button I get:
+
+D/BluetoothAdapterStateMachine(  264): PowerOff process message: 1
+D/BluetoothAdapterStateMachine(  264): Bluetooth state 10 -> 11
+D/BluetoothAdapterStateMachine(  264): BluetoothService enableNative != 0
+E/BluetoothAdapterStateMachine(  264): failed to prepare bluetooth, abort turning on
+D/BluetoothAdapterStateMachine(  264): Bluetooth state 11 -> 10
+
+enableNative() is found in /jni/android_server_BluetoothService.cpp:
+
+static jint enableNative(JNIEnv *env, jobject object) {
+#ifdef HAVE_BLUETOOTH
+    ALOGV("%s", __FUNCTION__);
+    return bt_enable();
+#endif
+    return -1;
+}
+
+where bt_enable() is in /system/bluetooth/bluedroid/bluetooth.c and it's the same used by "bttest enable"
+
+ - - - -
+
+I recompiled afte enabling verbose logging in frameworks/base/core/jni/android_bluetooth_common.h and now I get different errors.
+
+Settings still missing bluetooth option.
+
+Enabling BT from Power Widget doens't complete.
+
+Using "bttest enable" I get these in logcat:
+
+V/bluedroid(  691): bt_enable
+V/bluedroid(  691): Bluetooth Power (rfkill value) set to: 1
+I/bluedroid(  691): Starting hciattach daemon
+I/bluedroid(  709): bt_enable: ret: -1, errno: 110
+I/bluedroid(  709): bt_enable: ret: -1, errno: 110
+I/bluedroid(  709): bt_enable: ret: -1, errno: 110
+...
+
+while in dmesg I get these:
+
+BT_RFKILL emev_rfkill_set_radio_block:53: Rfkill bt set power: 0
+BT_RFKILL emev_rfkill_set_radio_block:67: rfkill bt Unblocked
+h4_recv: Unknown HCI packet type 00
+...
+h4_recv: Unknown HCI packet type e0
+h4_recv: Unknown HCI packet type f0
+h4_recv: Unknown HCI packet type fc
+h4_recv: Unknown HCI packet type fe
+h4_recv: Unknown HCI packet type 80
+
+Could it be a missing kernel patch?
+
+Trying back-porting drivers/bluetooth from kernel 3.9_rc6 ... but it's a MESS!
+
+ - - - - -
+
+I should also try to understand why BT isn't shown in Wireless Settings...
+
+ - - - - -
+
+Seems like I have to patch hciattach.c ... 
+Liu said he sent a patch, but we can't find it anymore. He should search on his PC ...
+
+He sent Livall ICS repo and I've stored in /media/u03/RenesasEV2/emev_repo.tar, expanded in:
+
+ /media/u03/RenesasEV2/livall-ics/
+
+repo checkout emev_ics
+
+ - - - - -
+
+Trying to debug manually what's wrong within bt_enable()
+
+echo '1'>/sys/class/rfkill/rfkill1/state
+
+BT_RFKILL emev_rfkill_set_radio_block:53: Rfkill bt set power: 0
+BT_RFKILL emev_rfkill_set_radio_block:67: rfkill bt Unblocked
+
+Power up seems OK. Then, invoking the "hciattach" service (ss per init.emxx.rc):
+
+system/bin/brcm_patchram_plus -d --enable_hci --enable_lpm --baudrate 1500000 --patchram /system/etc/firmware/bcm4329.hcd /dev/ttyS1
+
+This also completes successfully and stays on, giving his last initialization message in logcat:
+
+ "Done setting line discpline"
+
+Then, the following line (from system/bluetooth/bluedroid/bluetooth.c) is the one failing:
+
+   ret = ioctl(hci_sock, HCIDEVUP, HCI_DEV_ID);
+
+the hci_sock is correctly set; the HCIDEVUP is the command to send; HCI_DEV_ID is 0, but I'm not sure it's correct ????
+
+ - - - - -
+
+Liu confirmed I need fixes to hciattach.c too, that come from Broadcom:
+
+Infact I can find a large patch in livall-ics code:
+
+external/bluetooth/bluez$ git diff bf7f8cbbd3ae3699a2005df8639e7d6ae117ff0e 966afbd88f0bfc325bf80274ad2723c238883fa1 --stat
+ tools/Android.mk  |    1 -
+ tools/hash.h      |   68 ----
+ tools/hciattach.c | 2778 +++++++++++-------------------------------------------------------------------------------------------------------------------------------
+ tools/md5.c       |  275 --------------
+ tools/md5.h       |   50 ---
+
+ git format-patch -1
+
+has created "0001-Added-bluetooth-support.patch", which I'm going to apply to JB:
+
+cd /media/u02/RenesasEV2/jb/external/bluetooth/bluez
+patch -p1 < /media/u03/RenesasEV2/livall-ics/external/bluetooth/bluez/0001-Added-bluetooth-support.patch 
+
+ -> OK
+
+git branch emev-4.1_BT
+git checkout emev-4.1_BT
+
+then rebuild...
+
+I also had to change the hciattach service definition, in init.emxx.rc, like below: 
+
+service hciattach /system/bin/hciattach -n /dev/ttyS1 bcm2048
+    class main
+    user bluetooth
+    group bluetooth system net_bt_admin
+    disabled
+
+service bt_up /system/xbin/hciconfig hci0 up
+    class main
+    user bluetooth
+    group bluetooth system net_bt_admin
+    disabled
+    oneshot
+
+Infact, it works now! I can enable BT from the Power Widget and get these in logcat:
+
+...
+V/BluetoothSocket.cpp(  644): initSocketNative
+V/BluetoothSocket.cpp(  644): ...fd 42 created (RFCOMM, lm = 0)
+V/BluetoothSocket.cpp(  644): initSocketFromFdNative
+V/BluetoothSocket.cpp(  644): bindListenNative
+V/BluetoothSocket.cpp(  644): ...bindListenNative(42) success
+I/BtOppRfcommListener(  644): Accept thread started on channel 12
+
+ - - - - -
+
+Fixes are found in branch emev-4.1_BT under github repos:
+
+  Renesas-EMEV2 / Renesas-device_emev
+  Renesas-EMEV2 / platform_bluez
+
+After merging emev-4.1_BT into emev-4.1, platform_bluez needs to be added to default manifest.
+
+ - - - - -
+
+In order to make device visible, I need to have BT in System Settings.
+
+I will rebuild full Android after a clean...
+
+ - - - - -
+
+BT doesn't appear in System Settings yet !!!
+
+Asked in android-building group and StackOverflow:
+
+ http://stackoverflow.com/questions/15974573/bluetooth-missing-under-system-settings/15998204?iemail=1&noredirect=1#15998204
+
+ - - - - -
+
+ 15 Apr 2015
+
+Solution ! I was missing /system/etc/permissions/tablet_core_hardware.xml from device.mk (see other devices on AOSP for exmplaes).
+
+Now I can get BT under setting, and exchange files as well with my laptop. 
+
+Couldn't manage to set PC as a "headset"... but I don't care for the moment.
+
+ emev-4.1_BT merged into emev-4.1
+
+

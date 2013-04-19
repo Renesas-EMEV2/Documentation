@@ -1,0 +1,143 @@
+
+ Adding g-sensor
+
+$ adb logcat | grep -i sensor
+
+D/SensorService(  258): nuSensorService starting...
+I/HAL     (  258): hw_get_module_by_class - name 'sensors'
+I/HAL     (  258): hw_get_module_by_class - class_id 'sensors',  path '/system/lib/hw/sensors.emxx.so'
+V/HAL     (  258): loaded HAL id=sensors path=/system/lib/hw/sensors.emxx.so hmi=0x0 handle=0x40019d4c
+I/Sensors (  258): Opening BMA220 device
+E/Sensors (  258): Couldn't open /dev/sensor (Permission denied)
+E/Sensors (  258): BMA220_ACC_IOCTL_SET_ENABLE failed (Bad file number)
+I/SensorService(  258): BMA220 3-axis Accelerometer
+D/SensorService(  258): nuSensorService thread starting...
+D/EventHub(  258): No input device configuration file found for device 'emxx-sensors'.
+
+Why "Couldn't open /dev/sensor (Permission denied)" ?
+
+$ adb shell
+
+root@android:/ # ls -l /dev/sensor                                             
+crw------- root     root      10,  48 1994-03-28 00:01 sensor
+
+
+Errors removed adding these lines into init.emxx.rc
+
+    chown compass compass /dev/sensor
+    chmod 660 /dev/sensor
+
+ - - - -
+
+I'm not sure g-sensor works... need to test & debug
+
+Kernel reports (logs added to ./drivers/misc/emxx_sensors/emxx_sensors_bma220.c):
+
+...
+BMA220 data - reg[0]:0 xyz[0]:-1, xyz[1]:-2, xyz[2]:16  cali - 0:0:0
+BMA220 data - reg[0]:0 xyz[0]:-1, xyz[1]:-2, xyz[2]:16  cali - 0:0:0
+BMA220 data - reg[0]:0 xyz[0]:-2, xyz[1]:-2, xyz[2]:16  cali - 0:0:0
+BMA220 data - reg[0]:0 xyz[0]:-1, xyz[1]:-2, xyz[2]:16  cali - 0:0:0
+BMA220 data - reg[0]:0 xyz[0]:-1, xyz[1]:-2, xyz[2]:16  cali - 0:0:0
+BMA220 data - reg[0]:0 xyz[0]:-1, xyz[1]:-1, xyz[2]:16  cali - 0:0:0
+...
+
+when board is laying flat on a table.
+
+xyz[0] goes to -16/+16 when board is moved to "portrait" mode
+xyz[1] goes to -16/+16 when board is moved to "landscape" mode
+
+So, taking X and Y as horizontal and vertical axes of screen:
+
+ xyz[0] -> X axis
+ xyz[1] -> Y axis
+ xyz[2] -> Z axis
+
+Seems driver works fine, but I can't see the screen changing orientation, when moving board...
+
+  - - - 
+
+Adding logs in BMA220Sensor::readEvents() I get these:
+
+...
+I/Sensors (  259): readEvents count=16
+I/Sensors (  259): readEvents type=3, code=0, value=-2
+I/Sensors (  259): readEvents type=3, code=1, value=-3
+I/Sensors (  259): readEvents type=0, code=0, value=0
+I/Sensors (  259): readEvents count=16
+I/Sensors (  259): readEvents type=3, code=2, value=16
+I/Sensors (  259): readEvents type=0, code=0, value=0
+I/Sensors (  259): readEvents count=16
+I/Sensors (  259): readEvents type=3, code=0, value=-2
+I/Sensors (  259): readEvents type=3, code=1, value=-3
+I/Sensors (  259): readEvents type=0, code=0, value=0
+...
+
+only once in a while I get the three X,Y,Z (i.e. including code=2):
+
+I/Sensors (  259): readEvents count=16
+I/Sensors (  259): readEvents type=3, code=0, value=-2
+I/Sensors (  259): readEvents type=3, code=1, value=-3
+I/Sensors (  259): readEvents type=3, code=2, value=14
+I/Sensors (  259): readEvents type=0, code=0, value=0
+
+Seems like mInputReader.fill doesn't always returns all X, Y, Z events, but that may be expected (only changes reported).
+
+----
+
+Taking dumps with board in different positions:
+
+1) flat on a table: 
+
+ffxx68@ubuntu:~$ adb shell dumpsys sensorservice
+Sensor List:
+BMA220 3-axis Accelerometer                     | Bosch                            | 0x00000000 | maxRate=   0.00Hz | last=< -2.0, -2.0, 16.0>
+9-axis fusion disabled (0 clients), gyro-rate=   0.00Hz, q=< 0, 0, 0, 0 > (0), b=< 0, 0, 0 >
+1 h/w sensors:
+handle=0x00000000, active-count=1, rates(ms)={ 66.7 }, selected=66.7 ms
+1 active connections
+Active sensors:
+BMA220 3-axis Accelerometer (handle=0x00000000, connections=1)
+
+2) portrait:
+
+ffxx68@ubuntu:~$ adb shell dumpsys sensorservice
+Sensor List:
+BMA220 3-axis Accelerometer                     | Bosch                            | 0x00000000 | maxRate=   0.00Hz | last=<-16.0, -2.0,  7.0>
+9-axis fusion disabled (0 clients), gyro-rate=   0.00Hz, q=< 0, 0, 0, 0 > (0), b=< 0, 0, 0 >
+1 h/w sensors:
+handle=0x00000000, active-count=1, rates(ms)={ 66.7 }, selected=66.7 ms
+1 active connections
+Active sensors:
+BMA220 3-axis Accelerometer (handle=0x00000000, connections=1)
+
+3) landscape:
+
+ffxx68@ubuntu:~$ adb shell dumpsys sensorservice
+Sensor List:
+BMA220 3-axis Accelerometer                     | Bosch                            | 0x00000000 | maxRate=   0.00Hz | last=< -2.0, 14.0,  4.0>
+9-axis fusion disabled (0 clients), gyro-rate=   0.00Hz, q=< 0, 0, 0, 0 > (0), b=< 0, 0, 0 >
+1 h/w sensors:
+handle=0x00000000, active-count=1, rates(ms)={ 66.7 }, selected=66.7 ms
+1 active connections
+Active sensors:
+BMA220 3-axis Accelerometer (handle=0x00000000, connections=1)
+
+ - - - -
+
+Comparing with GB stock fw:
+
+ flat: < -3.0, -2.0, 16.0>
+ portrait:   <-16.0, -2.0,  1.0>
+ landscape:  <  2.0, 14.0,  4.0>
+
+Looks working fine.
+
+JB launcer doesn't rotate by default (not sure why), but the HAL seems integrated correctly. Will push this.
+
+
+
+
+
+
+
