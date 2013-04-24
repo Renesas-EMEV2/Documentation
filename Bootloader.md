@@ -240,7 +240,18 @@ The complete script to prepare the SD card in such way is provided:
 
 including the uboot make, SD partitioning and creation steps.
 
-NOTE - The android file system (android-fs4.tar.gz) and kernel image (uImage) are not included and should be stored in testsd/ before executing the script. Also, the android init.rc should have been patched assuming root fs at "/dev/mmcblk1p3", in place of the usual "/dev/mmcblk0p3".
+IMPORTANT - Before first boot, the init.rc found in the "androidfs4" SD card partition should be patched replacing:
+
+	mount ext3 /dev/block/mmcblk0p6 /data nosuid nodev
+
+with:
+
+	mount ext3 /dev/block/mmcblk1p5 /data nosuid nodev
+
+NOTE - The android file system (android-fs4.tar.gz) and kernel image (uImage) are not included and should be stored in testsd/ before executing the script.
+
+To be noticed also that running Android from the SD-card makes it MUCH slower that from the internal NAND, especially first time it's booted-up (which may take several minutes to complete), but also for every single action made on device.
+
 
 Using serial console and reloading kernel image
 -----------------------------------------------
