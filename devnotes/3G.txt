@@ -1,0 +1,228 @@
+
+
+ -----------
+
+ 19 Apr 2013
+
+ Integrating 3G module
+
+With kernel CONFIG_EMEV_3GSIMPLE configuired, when turning off WiFi, I get in dmesg
+
+<4>WIFI_RFKILL emev_3G_poweron:74: Switching 3G power on
+<4>--SDIO1 disconnected
+<6>mmc2: card 0001 removed
+<6>usb 1-1.1: new high speed USB device using emxx-ehci-driver and address 3
+
+and when tirning WiFi back on:
+
+<4>WIFI_RFKILL emev_3G_poweroff:66: Switching 3G power off
+<4>--SDIO1 connected
+...
+<6>usb 1-1.1: USB disconnect, address 3
+
+So it looks like the USB device (the 3G module) is "felt" by the system, but I can't find any new /dev/ttyUSB*
+
+Device Driver?
+
+ - - - - 
+
+Following the tutorial for 3G integration on JB at:
+
+ http://processors.wiki.ti.com/index.php/Android-USB-3G-Modem-Integration#Android_USB_3G_modem_Integration
+
+I download usb_modeswitch packages from :
+
+ http://www.draisberghof.de/usb_modeswitch/#download
+
+ -> /media/u02/RenesasEV2/jb/device/renesas/emev/3G/
+
+-rw-r--r-- 1 ffxx68 ffxx68 518116 2013-04-19 16:23 usb_modeswitch-1.1.9-arm-static
+-rw-r--r-- 1 ffxx68 ffxx68 259200 2013-04-19 16:24 usb-modeswitch-1.2.5.tar.bz2
+-rw-r--r-- 1 ffxx68 ffxx68  21558 2013-04-19 16:26 usb-modeswitch-data-20121109.tar.bz2
+
+I need to prepare a usb_modeswitch.conf ... maybe similar to one of the many ZTE ones:
+
+ usb-modeswitch-data-20121109/usb_modeswitch.d/19d2:*
+
+Need to find out VendorID and DeviceID for our ZTE MF-212 module... with 'busybox lsusb'?
+
+ - - - -
+
+Debugging what happens with GB stock fw, when 3G modem is turned on:
+
+dmesg:
+
+<6>usb 1-1.1: new full speed USB device using emxx-ohci-driver and address 4
+<6>option 1-1.1:1.0: GSM modem (1-port) converter detected
+<6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB0
+<6>option 1-1.1:1.1: GSM modem (1-port) converter detected
+<6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB1
+<6>option 1-1.1:1.2: GSM modem (1-port) converter detected
+<6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB2
+<6>option 1-1.1:1.3: GSM modem (1-port) converter detected
+<6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB3
+
+no 3G-message in logcat, except this:
+
+I/LivallService(  116): _keepPhoneAwaken(true)
+
+ - - - -
+
+ 22 apr 2013
+ 
+Compiled busybox wiht lsusb option, to get this info from device with 3G disabled:
+
+root@android:/ # busybox lsusb                                                 
+Bus 001 Device 001: ID 1d6b:0002
+Bus 002 Device 001: ID 1d6b:0001
+Bus 001 Device 002: ID 05e3:0608
+
+After enabling 3G I get an additional device:
+
+root@android:/ # busybox lsusb                                                 
+Bus 001 Device 001: ID 1d6b:0002
+Bus 002 Device 001: ID 1d6b:0001
+Bus 001 Device 002: ID 05e3:0608
+Bus 001 Device 003: ID 19d2:2003
+
+So, our ZTE MF-212 module has
+
+ vendor ID: 19d2
+ device ID: 2003
+
+In the usb_modeswitch config data I can find:
+
+$ cat 19d2:2000
+
+which includes 2003 among the target product list.
+
+I modify it as below, for DefaultProduct and TargetProduct as 0x2003:
+
+-------------
+# ZTE MF-212 module
+EnableLogging=1
+DefaultVendor=0x19d2
+DefaultProduct=0x2003
+TargetVendor=0x19d2
+TargetProduct=0x2003
+TargetProductList="0001,0002,0015,0016,0017,0031,0037,0052,0055,0061,0063,0064,0066,0091,0108,0117,0128,0157,1402,2002,2003"
+MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
+MessageContent3="55534243123456702000000080000c85010101180101010101000000000000"
+NeedResponse=1
+-------------
+
+Still following tutorial at:
+
+ http://processors.wiki.ti.com/index.php/Android-USB-3G-Modem-Integration#Android_USB_3G_modem_Integration
+
+The usb_modeswitch is found in 
+
+ /media/u02/RenesasEV2/jb/device/renesas/emev/3G/usb-modeswitch-1.2.5
+
+Pushed files and tested with:
+
+ usb_modeswitch /system/bin/usb_modeswitch -I -W -c /system/etc/usbmodeswitch.conf
+
+but I got a few errors... 
+
+-------------
+usb_set_debug: Setting debugging level to 15 (on)
+usb_os_find_busses: Found 002
+usb_os_find_busses: Found 001
+usb_os_find_devices: Found 001 on 002
+usb_os_find_devices: Found 003 on 001
+usb_os_find_devices: Found 002 on 001
+usb_os_find_devices: Found 001 on 001
+error obtaining child information: Inappropriate ioctl for device
+
+Looking for target devices ...
+  searching devices, found USB ID 1d6b:0001
+  searching devices, found USB ID 19d2:2003
+   found matching vendor ID
+   found matching product ID from list
+  searching devices, found USB ID 05e3:0608
+  searching devices, found USB ID 1d6b:0002
+ Found devices in target mode or class (1)
+Looking for default devices ...
+  searching devices, found USB ID 1d6b:0001
+  searching devices, found USB ID 19d2:2003
+   found matching vendor ID
+   found matching product ID
+   adding device
+  searching devices, found USB ID 05e3:0608
+  searching devices, found USB ID 1d6b:0002
+ Found devices in default mode, class or configuration (1)
+Accessing device 003 on bus 001 ...
+Getting the current device configuration ...
+ OK, got current device configuration (1)
+Using endpoints 0x01 (out) and 0x81 (in)
+
+USB description data (for identification)
+-------------------------
+Manufacturer: ZTE,Incorporated
+     Product: ZTE WCDMA Technologies MSM
+  Serial No.: not provided
+-------------------------
+Looking for active driver ...
+USB error: could not get bound driver: No data available
+ No driver found. Either detached before or never attached
+Setting up communication with interface 0
+Using endpoint 0x01 for message sending ...
+Trying to send message 1 to endpoint 0x01 ...
+ OK, message successfully sent
+Reading the response to message 1 (CSW) ...
+ Response reading got error -110
+ Device is gone, skipping any further commands
+-> Run lsusb to note any changes. Bye.
+-------------
+
+
+Posted question on 
+
+http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?f=3&t=1428&p=9538#p9538
+
+ - - - - 
+
+I think I missed these in my kernel:
+
+CONFIG_USB_SERIAL=y
+CONFIG_USB_SERIAL_WWAN=y
+CONFIG_USB_SERIAL_OPTION=y
+
+which enable the USB-serial driver specific for data-over-GSM (WWAN).
+
+Also this would maybe allow me to use this command to enable my specific device:
+
+ echo "19d2 2003" >/sys/bus/usb-serial/drivers/option1/new_id"
+
+- - - - 
+ 
+Rebuild with above config and.. voilà: enabling 3G module I get:
+
+
+<6>usb 1-1.1: new high speed USB device using emxx-ehci-driver and address 3
+<6>option 1-1.1:1.0: GSM modem (1-port) converter detected
+<6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB0
+<6>option 1-1.1:1.1: GSM modem (1-port) converter detected
+<6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB1
+<6>option 1-1.1:1.2: GSM modem (1-port) converter detected
+<6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB2
+<6>option 1-1.1:1.3: GSM modem (1-port) converter detected
+<6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB3
+
+So, no need of usb_modeswitch, as the module is alredy appearing as a GSM modem (0x2003).
+
+ - - - - -
+
+Following tutorials found on the net:
+
+ http://processors.wiki.ti.com/index.php/Android-USB-3G-Modem-Integration#Android_USB_3G_modem_Integration
+ http://afewe.wordpress.com/android-arm-development/use-point-to-point-protocol-ppp-in-android/
+ ...
+
+Looks like a pppd service must be started, or a wrapper script to it, like init.gprs-pppd ...
+
+
+
+
