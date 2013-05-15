@@ -1,0 +1,96 @@
+
+ WiFi signal indicator BUG
+
+ - - - - - - - - 
+
+ 14 May 2013
+
+With connected WiFi...
+
+root@android:/ # wpa_cli -ieth0 -pwpa_eth0         
+                            
+> scan
+OK
+> scan_results
+bssid / frequency / signal level / flags / ssid
+74:44:01:3b:a7:f0	2412	-72	[WPA-PSK-TKIP+CCMP][WPA2-PSK-TKIP+CCMP][WPS][ESS]	FFUMI-IT_Network
+02:24:01:47:4e:05	2437	-80	[WPA-PSK-TKIP][ESS]	dlink
+84:c9:b2:f2:a7:e5	2437	-86	[WPA-PSK-TKIP+CCMP][WPA2-PSK-TKIP+CCMP][ESS]	NickCarter Infostrada
+38:22:9d:fb:90:2c	2462	-73	[WPA-PSK-TKIP][ESS]	FASTWEB-1-38229DFB902C
+> list_networks
+network id / ssid / bssid / flags
+0	FFUMI-IT_Network	any	[CURRENT]
+> signal_poll
+FAIL
+
+not getting any message from log... 
+
+This patch is interesting "bcm4329: bcmdhd: Add signal_poll command support":
+
+ https://android.googlesource.com/platform/hardware/broadcom/wlan/+/d7edab78ddecd5492c22006c1b1e23c6c6b2a479
+
+but this seems to me already present in our wpa_supplicant code...
+
+Also interesting: http://www.mail-archive.com/ath9k-devel@lists.ath9k.org/msg10158.html
+
+------------------
+As for "wpa_cli signal_poll", it get output like this:
+
+Selected interface 'wlan0'
+RSSI=-37
+LINKSPEED=1
+NOISE=-93
+FREQUENCY=2462
+
+If you get a fail, then maybe your distribution-provided wpa_supplicant is outdated and/or using the old WEXT interface as well. Find a way to use wpa_supplicant with -Dnl80211, and retry. 
+------------------
+
+Hence, replacing
+
+service wpa_supplicant /system/bin/wpa_supplicant -dd -Dwext -ieth0 -c /system/etc/wifi/wpa_supplicant.conf
+    class main
+    socket wpa_eth0 dgram 660 wifi system
+    group system wifi inet
+    disabled
+    oneshot
+
+with
+
+service wpa_supplicant /system/bin/wpa_supplicant -dd -Dnl80211 -ieth0 -c /system/etc/wifi/wpa_supplicant.conf
+    class main
+    socket wpa_eth0 dgram 660 wifi system
+    group system wifi inet
+    disabled
+    oneshot
+
+But it doesn't work:
+
+E/wpa_supplicant( 1258): eth0: Unsupported driver 'nl80211'
+D/wpa_supplicant( 1258): Failed to add interface eth0
+
+ - - - - -
+
+ 15 May 2013
+
+After checking source code a bit, I figured out where the problem was. 
+The link to the signal_poll driver function was missing, in driver_wext.c:
+
+const struct wpa_driver_ops wpa_driver_wext_ops = {
+        ...
+        .signal_poll = wpa_driver_signal_poll,
+
+Adding this solved the problem, as WiFi signal level is shown on notification bar icon!
+
+Though it's way lower than real...
+
+ - - - - -
+
+About reported signal strenght, this thread is an interesting one:
+
+ http://forum.xda-developers.com/showthread.php?p=31261798#post31261798
+
+Liu said a newer BCM driver version might have fixed that lower-than-expected signal level.
+
+A quick hack might be the one suggested in the xda forum, to correct Android "translation" of RSSI to bar levels.
+
+
