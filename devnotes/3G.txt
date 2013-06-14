@@ -211,7 +211,7 @@ Rebuild with above config and.. voilà: enabling 3G module I get:
 <6>option 1-1.1:1.3: GSM modem (1-port) converter detected
 <6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB3
 
-So, no need of usb_modeswitch, as the module is alredy appearing as a GSM modem (0x2003).
+So, no need of usb_modeswitch, as the module is already appearing as a GSM modem (0x2003).
 
  - - - - -
 
@@ -223,6 +223,836 @@ Following tutorials found on the net:
 
 Looks like a pppd service must be started, or a wrapper script to it, like init.gprs-pppd ...
 
+This message looks helpful:
+
+https://groups.google.com/forum/?fromgroups=#!topic/android-porting/bN83haj25cA[1-25-false]
+
+---------
+I have just completed this part of work recently so here are some
+advice.
+
+1, get the ppp source code(I am using ppp-2.4.4) and compile "chat" .
+(android has pppd but doesn't have chat . Maybe there are some other
+ways to attach the net without chat  )
+
+2, modify  ppp-2.4.4/scripts/ppp-on  according to your own platform.
+( take care about the arguments of pppd in the script  )
+
+3,test your ppp-on under command line. (eg:  pppd call
+your_dial_script_file_name)
+
+4, If you can attatch to the net successfully ,then you can call the
+script in RIL.
+
+5, in order to call the script in RIL,you need to:
+    a,   add a service in init.rc.  eg:
+        service pppd_gprs /etc/ppp/init.gprs-pppd
+            user root
+            group radio cache inet misc
+            disabled
+
+    b, when you receive :RIL_REQUEST_SETUP_DATA_CALL , use
+property_set("ctl.start", SERVICE_PPPD_GPRS);
+        to activate the script ( you have tested the scrpit at step 3
+so you can probably attach to the net )
+
+    c, add permisions in enable the RIL to call the script.
+(  froyo_source_code/system/core/init/property_service.c ,
+        struct {
+        const char *service;
+        unsigned int uid;
+        unsigned int gid;
+        } control_perms[])
+
+    6, you probably can attach to the internet  but still  need to do
+some work to make the mechanism robust.  I think you will find some
+places need to be improved. 
+---------
+
+The chat program for ARM can be taken from GB stock fw.
+
+pppd is already compiled by default in JB.
+
+The rest requires some work...
+
+A script is given there as well:
+
+/system/bin/pppd /dev/ttyUSB0 115200 persist defaultroute usepeerdns -
+detach crtscts noauth debug connect "/system/bin/chat -v -s -f /etc/ppp/dialTest" 
+
+with dialTest:
+
+TIMEOUT 10
+ABORT BUSY
+ABORT DELAYED
+ABORT "NO ANSWER"
+ABORT "NO DIALTONE"
+ABORT VOICE
+ABORT ERROR
+ABORT RINGING
+'' AT
+
+OK ATE1
+OK AT+CGDCONT=1,"IP","websfr"
+OK "ATD*99***1#"
+CONNECT '' 
+
+ - - - - - 
+
+ 7 May 2013
+
+Testing myself...
+
+Created /system/etc/ppp/dialTest with:
+
+TIMEOUT 40
+ABORT "DELAYED"
+ABORT "BUSY"
+ABORT "ERROR"
+ABORT "NO DIALTONE"
+ABORT "NO CARRIER"
+TIMEOUT 40
+'' \nAT
+OK AT&F0
+OK ATE0V1&C1&D2
+OK ATE0
+OK AT+CGDCONT=1,"IP","web.omnitel.it"
+OK ATDT*99#
+CONNECT ''
+
+Copied "chat" program to /system/xbin/chat
+
+Then, tried the script above:
+
+/system/bin/pppd /dev/ttyUSB0 115200 persist defaultroute usepeerdns -detach crtscts noauth debug connect "/system/xbin/chat -v -s -f /system/etc/ppp/dialTest" 
+
+which gives: 
+
+I/chat    ( 2341): chat_send (40)
+I/chat    ( 2341): timeout set to 40 seconds
+I/chat    ( 2341): chat_send (DELAYED)
+I/chat    ( 2341): abort on (DELAYED)
+I/chat    ( 2341): chat_send (BUSY)
+I/chat    ( 2341): abort on (BUSY)
+I/chat    ( 2341): chat_send (ERROR)
+I/chat    ( 2341): abort on (ERROR)
+I/chat    ( 2341): chat_send (NO DIALTONE)
+I/chat    ( 2341): abort on (NO DIALTONE)
+I/chat    ( 2341): chat_send (NO CARRIER)
+I/chat    ( 2341): abort on (NO CARRIER)
+I/chat    ( 2341): chat_send (40)
+I/chat    ( 2341): timeout set to 40 seconds
+I/chat    ( 2341): chat_send (\nAT)
+I/chat    ( 2341): send (^JAT^M)
+I/chat    ( 2341): expect (OK)
+I/chat    ( 2341): alarm
+I/chat    ( 2341): Failed
+E/pppd    ( 2339): Connect script failed
+
+(But I was off 3G range and with no SIM card...)
+
+But issue now (apart from verifying connectivity) is to make the script being triggered when the USB device is created.
+
+ - - - - -
+
+Reading these:
+
+http://afewe.wordpress.com/android-arm-development/working-with-the-radio-layer-interface-ril-in-android/
+http://afewe.wordpress.com/android-arm-development/use-point-to-point-protocol-ppp-in-android/
+
+I still have a few doubts:
+
+1) it isn't clear to me what triggers the connection when the /dev/ttyUSB0 (or whatever) comes up. Has it to do with the RIL layer? (sorry, the aim of rild isn't clear time me yet)
+2) the pppd connection can be done manually, using the hardcoded APN name in the chat script, but what should be done to make the procedure more generic (using the UI-provided APN).
+
+which I left a comment about, in the blog.
+
+Also, I've added the "chat" code under external/ppp/chat (as suggested there).
+
+ - - - - -
+
+I've installed the "PPP Widet" app... which seems working (/dev/ttyUSB0 is seen) but not completely:
+
+I/PPPWidget( 1393): Looking at USB device 19d2:2003 with class 255
+E/PPPWidget( 1393): findPort error: java.io.IOException: write failed: EBADF (Bad file number)
+E/PPPWidget( 1393): Port file "/dev/gsmmodem" does not exist
+
+NOTE - Failure happens also when within 3G field range...
+
+Looking on forum as well:
+
+ http://www.draisberghof.de/usb_modeswitch/bb/viewforum.php?f=6
+
+Interesting, to test: "APN not longer mandatory if dial string is #777 (for CDMA)", where CDMA is sometimes used as a synonym for UMTS ... 
+
+ - - - - 
+
+Back to the built-in solution (no app), and to this message looks helpful:
+
+https://groups.google.com/forum/?fromgroups=#!topic/android-porting/bN83haj25cA[1-25-false]
+
+---------
+1, get the ppp source code(I am using ppp-2.4.4) and compile "chat" .
+(android has pppd but doesn't have chat . Maybe there are some other
+ways to attach the net without chat  )
+
+2, modify  ppp-2.4.4/scripts/ppp-on  according to your own platform.
+( take care about the arguments of pppd in the script  )
+
+3,test your ppp-on under command line. (eg:  pppd call
+your_dial_script_file_name)
+
+4, If you can attatch to the net successfully ,then you can call the
+script in RIL.
+
+5, in order to call the script in RIL,you need to:
+    a,   add a service in init.rc.  eg:
+        service pppd_gprs /etc/ppp/init.gprs-pppd
+            user root
+            group radio cache inet misc
+            disabled
+
+    b, when you receive :RIL_REQUEST_SETUP_DATA_CALL , use
+property_set("ctl.start", SERVICE_PPPD_GPRS);
+        to activate the script ( you have tested the scrpit at step 3
+so you can probably attach to the net )
+
+    c, add permisions in enable the RIL to call the script.
+(  froyo_source_code/system/core/init/property_service.c ,
+        struct {
+        const char *service;
+        unsigned int uid;
+        unsigned int gid;
+        } control_perms[])
+
+    6, you probably can attach to the internet  but still  need to do
+some work to make the mechanism robust.  I think you will find some
+places need to be improved. 
+---------
 
 
+Point 5.b - requires a customization in hardware/ril/reference-ril/reference-ril.c:
+
+
+        case RIL_REQUEST_SETUP_DATA_CALL:
+            requestSetupDataCall(data, datalen, t);
+            break;
+
+gets replaced by something like:
+
+        case RIL_REQUEST_SETUP_DATA_CALL:
+            property_set("ctl.start", SERVICE_PPPD_GPRS);
+            break;
+
+Where SERVICE_PPPD_GPRS is defined as
+
+Point 5.c - seems already fixed like that in JB.
+
+ - - - - 
+
+ 12 May 2013
+
+Back to the approach described in 
+
+ http://processors.wiki.ti.com/index.php/Android-USB-3G-Modem-Integration
+
+and 
+
+ http://e2e.ti.com/support/embedded/android/f/509/p/256087/896068.aspx#896068
+
+Trying to follow step-by-step the intergration from there:
+
+- apns-conf.xml copied over from Smallart GB fw
+- the "modeswitch" isn't necessary,as the 3g module appears as USB modem devices /dev/ttyUSB* as soon as powered up
+- rild already built in
+
+RIL library taken from 'git clone git://gitorious.org/rowboat/hardware-ril.git -b rowboat-jb-4.1'
+
+This includes a few patches on top of the base JB version, which I'm going to port into <JB>/hardware/ril/reference-ril:
+
+
+c474c75f070081ab42c460bf35b3ed36115f388d Add new RIL requests
+eed17496f0d3f414d8686f2d83e442e72937943d add case for RIL_REQUEST_GET_IMEISVwq
+8121c7f522fa8b7ae1ded71dc2f9523f83a0eddd Fix signal strength errors
+18b4df456fa8db357b7d8aee5a28273161b3692e start pppd when setup data call is requested
+46ae8810d4693d18eba20d8bd3dd9479523bfe30 configure serial baud rate to 115200
+5b16efdeca04c524df241af9315c8ec3bf774491 Fix rild running in Nakasi. --->> This one is found in JB too
+
+
+cd <JB>/device/renesas/emev/ppp/
+git clone git://gitorious.org/rowboat/hardware-ril.git -b rowboat-jb-4.1
+cd hardware-ril
+git log --pretty=oneline -8
+
+c474c75f070081ab42c460bf35b3ed36115f388d Add new RIL requests
+eed17496f0d3f414d8686f2d83e442e72937943d add case for RIL_REQUEST_GET_IMEISVwq
+8121c7f522fa8b7ae1ded71dc2f9523f83a0eddd Fix signal strength errors
+18b4df456fa8db357b7d8aee5a28273161b3692e start pppd when setup data call is requested
+46ae8810d4693d18eba20d8bd3dd9479523bfe30 configure serial baud rate to 115200
+5b16efdeca04c524df241af9315c8ec3bf774491 Fix rild running in Nakasi.   ------>>>>>  This one is found in JB too
+...
+
+git format-patch -5
+ls 000*
+
+-rw-r--r-- 1 ffxx68 ffxx68 2375 2013-05-13 11:03 0001-configure-serial-baud-rate-to-115200.patch
+-rw-r--r-- 1 ffxx68 ffxx68 6689 2013-05-13 11:03 0002-start-pppd-when-setup-data-call-is-requested.patch
+-rw-r--r-- 1 ffxx68 ffxx68 2328 2013-05-13 11:03 0003-Fix-signal-strength-errors.patch
+-rw-r--r-- 1 ffxx68 ffxx68  820 2013-05-13 11:03 0004-add-case-for-RIL_REQUEST_GET_IMEISVwq.patch
+-rw-r--r-- 1 ffxx68 ffxx68 5809 2013-05-13 11:03 0005-Add-new-RIL-requests.patch
+
+cd <JB>/hardware/ril
+git branch emev-4.1-3G
+git checkout emev-4.1-3G
+git apply /media/u02/RenesasEV2/jb/device/renesas/emev/ppp/hardware-ril/0001-configure-serial-baud-rate-to-115200.patch
+git apply /media/u02/RenesasEV2/jb/device/renesas/emev/ppp/hardware-ril/0002-start-pppd-when-setup-data-call-is-requested.patch
+git apply /media/u02/RenesasEV2/jb/device/renesas/emev/ppp/hardware-ril/0003-Fix-signal-strength-errors.patch
+git apply /media/u02/RenesasEV2/jb/device/renesas/emev/ppp/hardware-ril/0004-add-case-for-RIL_REQUEST_GET_IMEISVwq.patch
+git apply /media/u02/RenesasEV2/jb/device/renesas/emev/ppp/hardware-ril/0005-Add-new-RIL-requests.patch
+
+- - - - 
+
+Removed rild deamon from init.rc and moved to init.emxx.rc as below
+
+service ril-daemon /system/bin/rild -l /system/lib/libreference-ril.so -- -d /dev/ttyUSB2
+	class main
+	socket rild stream 660 root radio
+	socket rild-debug stream 660 radio system
+	user root
+	group radio cache inet misc audio sdcard_r sdcard_rw vpn net_admin
+
+ - - - -
+
+Created the ip-up/down scripts, as suggesgted:
+
+ip-up-datakey :
+-------------------------------------
+#!/system/bin/sh
+case $1 in
+    ppp1)
+        /android/bin/iptables --flush;
+        /android/bin/iptables --table nat --flush;
+        /android/bin/iptables --delete-chain;
+        /android/bin/iptables --table nat --append POSTROUTING --out-interface ppp0 -j MASQUERADE;
+        /android/bin/iptables --append FORWARD --in-interface ppp1 -j ACCEPT;
+        echo 0 > /proc/sys/net/ipv4/ip_forward;
+        echo 1 > /proc/sys/net/ipv4/ip_forward;
+        ;;
+    ppp0)
+    /system/bin/setprop "net.interfaces.defaultroute" "ppp1";
+    ;;
+esac
+
+/system/bin/setprop "net.ppp1.dns1" "$DNS1"
+/system/bin/setprop "net.ppp1.dns2" "$DNS2"
+/system/bin/setprop "net.ppp1.local-ip" "$IPLOCAL"
+/system/bin/setprop "net.ppp1.remote-ip" "$IPREMOTE"
+/system/bin/setprop "net.ppp1.gw" "$IPREMOTE"
+/system/bin/setprop "net.ppp1.if" "$IFNAME"
+-------------------------------------
+
+ip-down-datakey :
+-------------------------------------
+#!/system/bin/sh
+case $1 in
+    ppp1)
+        echo 0 > /proc/sys/net/ipv4/ip_forward;
+        ;;
+esac
+
+/system/bin/setprop "net.ppp1.dns1" ""
+/system/bin/setprop "net.ppp1.dns2" ""
+/system/bin/setprop "net.ppp1.local-ip" ""
+/system/bin/setprop "net.ppp1.remote-ip" ""
+/system/bin/setprop "net.ppp1.gw" ""
+/system/bin/setprop "net.ppp1.if" ""
+-------------------------------------
+
+
+Testing build with these patches applied:
+
+cd <JB>/device/renesas/emev/ppp/hardware-ril
+mv libril/Android.mk libril/Android.xx
+mv mock-ril/Android.mk mock-ril/Android.xx
+mv reference-ril/Android.mk reference-ril/Android.xx
+mv rild/Android.mk rild/Android.xx
+cd <JB>
+lunch 8
+make
+...
+ -> OK
+
+ - - - -
+
+Testing ...
+
+Enabling 3G modem doesn't return any message in logcat.
+
+Testing pppd command line (as found in patched reference-ril):
+
+/system/bin/pppd /dev/ttyUSB0 115200 linkname datakey unit 1 crtscts usepeerdns noauth defaultroute noipdefault ipcp-accept-local ipcp-accept-remote ipcp-max-failure 30 lcp-echo-interval 5 lcp-echo-failure 30 modem dump debug kdebug 8
+
+I/pppd    ( 1180): pppd options in effect:
+I/pppd    ( 1180): debug		# (from command line)
+I/pppd    ( 1180): kdebug 8		# (from command line)
+I/pppd    ( 1180): linkname datakey		# (from command line)
+I/pppd    ( 1180): unit 1		# (from command line)
+I/pppd    ( 1180): dump		# (from command line)
+I/pppd    ( 1180): noauth		# (from command line)
+I/pppd    ( 1180): /dev/ttyUSB0		# (from command line)
+I/pppd    ( 1180): 115200		# (from command line)
+I/pppd    ( 1180): crtscts		# (from command line)
+I/pppd    ( 1180): modem		# (from command line)
+I/pppd    ( 1180): lcp-echo-failure 30		# (from command line)
+I/pppd    ( 1180): lcp-echo-interval 5		# (from command line)
+I/pppd    ( 1180): ipcp-accept-local		# (from command line)
+I/pppd    ( 1180): ipcp-accept-remote		# (from command line)
+I/pppd    ( 1180): noipdefault		# (from command line)
+I/pppd    ( 1180): ipcp-max-failure 30		# (from command line)
+I/pppd    ( 1180): defaultroute		# (from command line)
+I/pppd    ( 1180): usepeerdns		# (from command line)
+D/pppd    ( 1181): using channel 1
+I/pppd    ( 1181): Using interface ppp1
+I/pppd    ( 1181): Connect: ppp1 <--> /dev/ttyUSB0
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+D/pppd    ( 1181): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x94f03a2> <pcomp> <accomp>]
+W/pppd    ( 1181): LCP: timeout sending Config-Requests
+I/pppd    ( 1181): Connection terminated.
+W/Netd    (   71): No subsystem found in netlink event
+D/NetlinkEvent(   71): Unexpected netlink message. type=0x11
+D/pppd    ( 1181): using channel 2
+I/pppd    ( 1181): Using interface ppp1
+I/pppd    ( 1181): Connect: ppp1 <--> /dev/ttyUSB0
+D/pppd    ( 1181): sent [LCP ConfReq id=0x2 <asyncmap 0x0> <magic 0x11363422> <pcomp> <accomp>]
+W/pppd    ( 1181): tcflush failed: Bad file number
+W/Netd    (   71): No subsystem found in netlink event
+D/NetlinkEvent(   71): Unexpected netlink message. type=0x11
+
+Asked for clarification on http://e2e.ti.com/support/embedded/android/f/509/p/256087/924763.aspx#924763 ...
+
+ - - - - 
+
+adb logcat -b radio
+
+...
+When switching WiFi off => 3G module on:
+
+I/RIL     (   80): Setting speed
+D/RILC    (   80): [UNSL]< UNSOL_RESPONSE_RADIO_STATE_CHANGED  {RADIO_OFF}
+D/AT      (   80): AT> ATE0Q0V1
+D/RILJ    (  376): [UNSL]< UNSOL_RESPONSE_RADIO_STATE_CHANGED RADIO_OFF
+D/RILB    (  376): Notifying: radio available
+D/RILJ    (  376): [0004]> RADIO_POWER on
+D/RILJ    (  376): [0005]> SCREEN_STATE: true
+D/GSM     (  376): [GsmSST] Poll ServiceState done:  oldSS=[1 home null null null  Unknown CSS not supported -1 -1 RoamInd=-1 DefRoamInd=-1 EmergOnly=false] newSS=[3 home null null null  Unknown CSS not supported -1 -1 RoamInd=-1 DefRoamInd=-1 EmergOnly=false] oldGprs=1 newData=1 oldMaxDataCalls=1 mNewMaxDataCalls=1 oldReasonDataDenied=-1 mNewReasonDataDenied=-1 oldType=Unknown newType=Unknown
+D/GSM     (  376): [GsmSST] operatorNumeric is null
+D/GSM     (  376): [GsmDCT] handleMessage msg={ what=270337 when=-7ms obj=android.os.AsyncResult@41042ad0 }
+D/GSM     (  376): [GsmDCT] onRadioAvailable
+D/GSM     (  376): [GsmDCT] overall state is IDLE
+D/RILJ    (  376): [0006]> BASEBAND_VERSION
+D/RILJ    (  376): [0007]> GET_IMEI
+D/RILJ    (  376): [0008]> GET_IMEISV
+D/AT      (   80): AT> ATE0Q0V1
+D/AT      (   80): AT> ATE0Q0V1
+D/AT      (   80): AT> ATE0Q0V1
+D/AT      (   80): AT> ATE0Q0V1
+D/AT      (   80): AT> ATE0Q0V1
+D/AT      (   80): AT> ATE0Q0V1
+D/AT      (   80): AT> ATE0Q0V1
+D/AT      (   80): AT> ATE0Q0V1
+D/RILJ    (  376): NOTE: mReqWaiting is NOT 0 but5 at TIMEOUT, reset! There still msg waitng for response
+D/RILJ    (  376): WAKE_LOCK_TIMEOUT  mRequestList=5
+D/RILJ    (  376): 0: [4] RADIO_POWER
+D/RILJ    (  376): 1: [5] SCREEN_STATE
+D/RILJ    (  376): 2: [6] BASEBAND_VERSION
+D/RILJ    (  376): 3: [7] GET_IMEI
+D/RILJ    (  376): 4: [8] GET_IMEISV
+
+ - - - - -
+
+BTW - I found out that 3G modem is "equivalent" (usb Id 19d2:2003) to an MF-112 dongle which is switched to modem mode already...
+
+ - - - - -
+
+Trying using ttyUSB0 in place of ttyUSB2, for libreference-ril.so, in init.emxx.so:
+
+#service ril-daemon /system/bin/rild -l /system/lib/libreference-ril.so -- -d /dev/ttyUSB2
+service ril-daemon /system/bin/rild -l /system/lib/libreference-ril.so -- -d /dev/ttyUSB0
+
+Makes no difference...
+
+Asked also on :
+
+ http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?f=3&t=1428&p=9772#p9772
+
+ - - - -
+
+%ZTEDevice2003% = ZTEportInstall6k, USB\VID_19D2&PID_2003&MI_00 (zteusbdiag.inf)
+%ZTEDevice2003% = ZTEportInstall, USB\VID_19D2&PID_2003&MI_01 (zteusbnmea.inf)
+%ZTEDevice2003% = ZTEportInstall, USB\VID_19D2&PID_2003&MI_02 (zteusbvoice.inf)
+%ZTEMDM19D22003% = Modem6k, USB\VID_19D2&PID_2003&MI_03 (zteusbmodem.inf)
+
+Need to try with USB3 ...
+
+ - - - -
+
+/system/bin/pppd /dev/ttyUSB3 115200 linkname datakey unit 1 crtscts usepeerdns noauth defaultroute noipdefault ipcp-accept-local ipcp-accept-remote ipcp-max-failure 30 lcp-echo-interval 5 lcp-echo-failure 30 modem dump debug kdebug 8
+
+ -> Same log output as above.
+
+rild not even showing the radio log above...
+
+ - - - -
+
+Smallart GB fw has:
+
+init.rc:
+...
+service ril-daemon /system/bin/rild -l /system/lib/libreference-ril.so -- -d /dev/ttyUSB1
+	socket rild stream 660 root radio
+    	socket rild-debug stream 660 radio system
+    	user root
+    	group radio cache inet misc audio
+
+service pppd_wcdma /system/bin/init.pppd_wcdma
+	user root
+	group radio cache inet misc
+	disabled
+	oneshot
+
+service pppd_evdo /system/bin/init.pppd_evdo
+	user root
+	group radio cache inet misc
+	disabled
+	oneshot
+
+service kill_pppd /system/bin/init.kill_pppd
+	disabled
+	oneshot
+
+
+where:
+
+system/bin/init.pppd_wcdma:
+
+#!/system/bin/sh
+PPPD_PID=
+PPPD_EXIT=
+/system/bin/setprop "net.gprs.ppp-exit" ""
+
+#below is config for SRB wcdma modem
+/system/bin/pppd /dev/ttyUSB3 115200 user \"\" password \"\" crtscts mru 1280 mtu 1280 dump noipdefault novjccomp connect-delay 5000 linkname ppp0 debug nodetach ipcp-accept-local ipcp-accept-remote local usepeerdns defaultroute novj connect 'chat -v "" "AT" "" "ATD*99# CONNECT"'
+PPPD_EXIT=$?
+PPPD_PID=$!
+/system/bin/setprop "net.gprs.ppp-exit" "$PPPD_EXIT"
+
+and libreference-ril.so strings include several entries like pppd_... (I miss the code)
+
+ - - - -
+
+Using 'picocom' to access the modem
+ 
+I build it from source code at: 
+  
+  http://code.google.com/p/picocom/
+  
+To compile it for ARM, the toolchain "CodeSourcery Lite - EABI" has to be used (the Android NDK misses the standard C libraries).
+
+Also, the Makefile has to be changed here:
+
+CC = arm-none-linux-gnueabi-gcc
+LD = arm-none-linux-gnueabi-gcc
+LDFLAGS = -g -static
+
+Example use:
+
+# picocom /dev/ttyUSB0 --b 115200
+
+tells 'Terminal ready' but no echo no 
+
+ - - - -
+
+I'm now thinking whether my "simple" module power control in kernel is too simple.
+
+E.g. it could be missing a reset, after power-up... but adding a GPIO reset toggle (1-0-1) in kernel didn't help !
+
+BTW - I also discovered from schematics that the ZTE 3G module should be equivalent to a U6300, or U6100 module.
+
+ - - - - - 
+
+Downloaded a few ZTE datasheets, found in datasheets/3Gmodule/ZTE
+
+ - - - - -
+
+When powering the module, I get the following on file system:
+
+# ls -l /dev/ttyUSB*                                          
+crw-rw---- radio    radio    188,   0 2013-05-22 15:50 ttyUSB0
+crw-rw---- radio    radio    188,   1 2013-05-22 15:51 ttyUSB1
+crw-rw---- radio    radio    188,   2 2013-05-22 15:50 ttyUSB2
+crw------- root     root     188,   3 2013-05-22 15:50 ttyUSB3
+
+# cat /proc/tty/driver/usbserial                                
+usbserinfo:1.0 driver:2.0
+0: name:"GSM modem (1-port)" vendor:19d2 product:2003 num_ports:1 port:1 path:usb-emxx_ehci-1.1
+1: name:"GSM modem (1-port)" vendor:19d2 product:2003 num_ports:1 port:1 path:usb-emxx_ehci-1.1
+2: name:"GSM modem (1-port)" vendor:19d2 product:2003 num_ports:1 port:1 path:usb-emxx_ehci-1.1
+3: name:"GSM modem (1-port)" vendor:19d2 product:2003 num_ports:1 port:1 path:usb-emxx_ehci-1.1
+
+Standing to some info I found on the net (e.g. http://blog.csdn.net/vishtvro/article/details/7505915; I'm not sure how to verify that directly), the four ports correspond to:
+
+ttyUSB3: Modem
+ttyUSB1: AT
+ttyUSB0: Debug
+ttyUSB2: VoUSB
+
+Posted also on:
+
+ http://stackoverflow.com/questions/16696356/3g-usb-modem-not-responding-to-at-commands
+
+and
+
+ http://www.draisberghof.de/usb_modeswitch/bb/viewtopic.php?f=3&t=1428&p=10035#p10035
+
+ - - - - - 
+
+ 28 May 2013
+
+I made some partial progress... using picocom "-i" option, meaning: "picocom will not initialize, reset, or otherwise meddle with the serial port at start-up. It will just open it. This is useful, for example, for connecting picocom to already-connected modems" (man page).
+
+Now I can get somehow to communicate with the modem, though with problems.
+
+For example, this is what I get if I simply type A + T + Z + <enter> afters starting picocom:
+
+---------------------
+root@android:/ # picocom -i -f h -b 115200  /dev/ttyUSB3     
+picocom v1.6
+
+port is        : /dev/ttyUSB3
+flowcontrol    : RTS/CTS
+baudrate is    : 115200
+parity is      : none
+databits are   : 8
+escape is      : C-a
+local echo is  : no
+noinit is      : yes
+noreset is     : no
+nolock is      : no
+send_cmd is    : sz -vv
+receive_cmd is : rz -vv
+imap is        :
+omap is        :
+emap is        : crcrlf,delbs,
+
+Terminal ready
+AAAAAAAAAAAAAAAAAAATATATATATATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZATZ
+
+ERROR
+
+ATZ
+
+
+OK
+
+ATZ
+
+
+OK
+
+ATZ
+
+
+OK
+
+---------------------
+
+
+Single characters as well as the entire command 'ATZ' is repeated several times... But, at least I get the 'OK' back, sometimes.
+
+What could be happening here?
+
+Also, I wonder how the "no init" can be issued programmatically in the rild interface.... 
+
+Note - An AT command reference can be found in docs/datasheets/3Gmodule/ZTE
+
+ - - - - - 
+
+Another approach.
+
+Thanks to http://forum.xda-developers.com/showthread.php?t=2172914
+
+1) Opening two adb shell consoles
+
+2) On console 1 type
+
+busybox tr -s "\n" < /dev/ttyUSB1
+
+3) On console 2 type
+
+echo -e "ATi\r" > /dev/ttyUSB1
+
+4) As a response, on console 1 I get
+
+ATi
+Manufacturer: 
+Model: MF210
+Revision: BD_P678A1V1.0.2B09
+IMEI: 352037031361039
++GCAP: +CGSM,+FCLASS,+DS
+OK
+ATi
+Manufacturer: 
+Model: MF210
+Revision: BD_P678A1V1.0.2B09
+IMEI: 352037031361039
++GCAP: +CGSM,+FCLASS,+DS
+OK
+
+As seen, I get the 'ATi' command twice in this case too...
+
+Sometimes some extra (or missing) character is found as well. E.g. entering 'echo -e "ATZ\r" > /dev/ttyUSB1'
+
+aaATZ
+OK
+aATZ
+OK
+aATZ
+OK
+
+But at least twice. Seems like a serial timing error, that ... or something similar.
+
+ - - - - -
+
+ 6 Jun 2013
+
+Applying a patch to kernel (taken from a different code source), which handles modem GPIOs better, but issue is still there...
+
+ - - - - -
+
+In any case, also in the GB firmware I have a similar behaviour: I can't use picocom to talk to modem thorugh /dev/ttyUSB*
+
+The following (for comparison), is what I get in logcat when I connect to 3G network:
+
+I/chat    (  566): chat_send (3)
+I/chat    (  566): timeout set to 3 seconds
+I/chat    (  566): chat_send (NO CARRIER)
+I/chat    (  566): abort on (NO CARRIER)
+I/chat    (  566): chat_send (NO DIALTONE)
+I/chat    (  566): abort on (NO DIALTONE)
+I/chat    (  566): chat_send (ERROR)
+I/chat    (  566): abort on (ERROR)
+I/chat    (  566): chat_send (NO ANSWER)
+I/chat    (  566): abort on (NO ANSWER)
+I/chat    (  566): chat_send (BUSY)
+I/chat    (  566): abort on (BUSY)
+I/chat    (  566): chat_send (AT)
+I/chat    (  566): send (AT^M)
+I/chat    (  566): expect (OK)
+I/chat    (  566): ^M
+I/chat    (  566): +CREG: 1, 88BF, E4B8^M
+I/chat    (  566): ^M
+I/chat    (  566): +CGREG: 1^M
+I/chat    (  566): ^M
+I/chat    (  566): OK
+I/chat    (  566):  -- got it
+I/chat    (  566): chat_send (ATDT*99#)
+I/chat    (  566): send (ATDT*99#^M)
+I/chat    (  566): expect (CONNECT)
+I/chat    (  566): ^M
+I/chat    (  566): ^M
+I/chat    (  566): CONNECT
+I/chat    (  566):  -- got it
+I/pppd    (  564): Serial connection established.
+D/pppd    (  564): using channel 2
+I/pppd    (  564): Using interface ppp0
+I/pppd    (  564): Connect: ppp0 <--> /dev/ttyUSB3
+D/Tethering(  107): ppp0 is not a tetherable iface, ignoring
+D/pppd    (  564): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x77a60644> <pcomp> <accomp>]
+D/pppd    (  564): rcvd [LCP ConfReq id=0x3 <asyncmap 0x0> <auth chap MD5> <magic 0x100f299> <pcomp> <accomp>]
+D/pppd    (  564): sent [LCP ConfAck id=0x3 <asyncmap 0x0> <auth chap MD5> <magic 0x100f299> <pcomp> <accomp>]
+D/pppd    (  564): rcvd [LCP ConfAck id=0x1 <asyncmap 0x0> <magic 0x77a60644> <pcomp> <accomp>]
+D/pppd    (  564): rcvd [LCP DiscReq id=0x4 magic=0x100f299]
+D/pppd    (  564): rcvd [CHAP Challenge id=0x1 <686d09f60845eee4a285f6d6eebcbfd2>, name = "UMTS_CHAP_SRVR"]
+D/pppd    (  564): sent [CHAP Response id=0x1 <0c94fbecaad02145424e66ce0d860d46>, name = "*"]
+D/pppd    (  564): rcvd [CHAP Success id=0x1 ""]
+I/pppd    (  564): CHAP authentication succeeded
+D/pppd    (  564): sent [CCP ConfReq id=0x1 <deflate 15> <deflate(old#) 15> <bsd v1 15>]
+D/pppd    (  564): sent [IPCP ConfReq id=0x1 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 0.0.0.0> <ms-dns3 0.0.0.0>]
+D/pppd    (  564): rcvd [LCP ProtRej id=0x5 80 fd 01 01 00 0f 1a 04 78 00 18 04 78 00 15 03 2f]
+D/pppd    (  564): rcvd [IPCP ConfNak id=0x1 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    (  564): sent [IPCP ConfReq id=0x2 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    (  564): rcvd [IPCP ConfNak id=0x2 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    (  564): sent [IPCP ConfReq id=0x3 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    (  564): rcvd [IPCP ConfNak id=0x3 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    (  564): sent [IPCP ConfReq id=0x4 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    (  564): rcvd [IPCP ConfReq id=0x2]
+D/pppd    (  564): sent [IPCP ConfNak id=0x2 <addr 0.0.0.0>]
+D/pppd    (  564): rcvd [IPCP ConfRej id=0x4 <compress VJ 0f 01>]
+D/pppd    (  564): sent [IPCP ConfReq id=0x5 <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    (  564): rcvd [IPCP ConfReq id=0x3]
+D/pppd    (  564): sent [IPCP ConfAck id=0x3]
+D/pppd    (  564): rcvd [IPCP ConfNak id=0x5 <addr 109.117.225.170> <ms-dns1 83.224.70.62> <ms-dns3 83.224.70.78>]
+D/pppd    (  564): sent [IPCP ConfReq id=0x6 <addr 109.117.225.170> <ms-dns1 83.224.70.62> <ms-dns3 83.224.70.78>]
+D/pppd    (  564): rcvd [IPCP ConfAck id=0x6 <addr 109.117.225.170> <ms-dns1 83.224.70.62> <ms-dns3 83.224.70.78>]
+W/pppd    (  564): Could not determine remote IP address: defaulting to 10.64.64.64
+I/pppd    (  564): local  IP address 109.117.225.170
+I/pppd    (  564): remote IP address 10.64.64.64
+I/pppd    (  564): primary   DNS address 83.224.70.62
+I/pppd    (  564): secondary DNS address 83.224.70.78
+D/pppd    (  564): Script /etc/ppp/ip-up started (pid 567)
+D/pppd    (  564): Script /etc/ppp/ip-up finished (pid 567), status = 0x0
+
+Running Livall stock GB firmware, when I enable 3G power I noticed:
+
+$ adb logcat -b radio
+
+D/RILD    (   72): Searching for modem 
+D/RILD    (   72): Searching for modem 
+D/RILD    (   72): Searching for modem 
+...
+
+NOTE - In none of AOSP JB or GB hardware/ril source files there is mention of such message "Searching for modem"
+
+It is found instead in the Livall GB rild binary:
+
+strings ./system/bin/rild | grep -i search
+Searching for modem 
+
+The string is NOT found in the /system/lib/libreference-ril.so
+
+I mean that rild code must have been customized as well by Livall, not just the library.
+
+ - - - -
+
+Adding these services to init.emxx.rc
+
+service ril-daemon /system/bin/rild -l /system/lib/libreference-ril.so -- -d /dev/ttyUSB1 -u /dev/ttyUSB3
+     class main
+     socket rild stream 660 root radio
+     socket rild-debug stream 660 radio system
+     user root
+     group radio cache inet misc audio sdcard_rw log
+
+service pppd_gprs /etc/init.gprs-pppd
+     user root
+     group radio cache inet misc
+     disabled
+     oneshot
+
+where libreference-ril.so and init.gprs-pppd are from Liu's mail, I don't get ANY message from ril, when I turn modem on...
+
+ - - - - 
+
+
+
+
+ 
 
