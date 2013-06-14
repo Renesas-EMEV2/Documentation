@@ -1,0 +1,61 @@
+
+Accelerometer not working
+
+ - - - - - -
+
+ 13 Jun 2013
+
+Forced logging in 
+
+ frameworks/base/core/java/android/view/WindowOrientationListener.java
+
+    private static final boolean LOG = true; //SystemProperties.getBoolean(
+   //         "debug.orientation.log", false);
+
+When in landscape, front-facing orientation, I get these messages:
+
+V/WindowOrientationListener(  263): Raw acceleration vector: x=-11.0, y=9.0, z=1.0, magnitude=14.247807
+V/WindowOrientationListener(  263): Filtered acceleration vector: x=-4.2712836, y=11.852382, z=2.0145996, magnitude=12.758583
+V/WindowOrientationListener(  263): Predicted: tiltAngle=9, orientationAngle=340, predictedRotation=0, predictedRotationAgeMS=4400.0
+V/WindowOrientationListener(  263): Result: currentRotation=0, proposedRotation=0, predictedRotation=0, timeDeltaMS=70.0, isAccelerating=false, isFlat=false, isSwinging=false, timeUntilSettledMS=0.0, timeUntilAccelerationDelayExpiredMS=0.0, timeUntilFlatDelayExpiredMS=0.0, timeUntilSwingDelayExpiredMS=0.0
+
+Here, currentRotation=0 means LANDSCAPE.
+
+After rotating to portrait, I get:
+
+V/WindowOrientationListener(  263): Raw acceleration vector: x=-15.0, y=-3.0, z=6.0, magnitude=16.431677
+V/WindowOrientationListener(  263): Filtered acceleration vector: x=-15.702481, y=-2.3713958, z=5.820604, magnitude=16.91363
+V/WindowOrientationListener(  263): Predicted: tiltAngle=20, orientationAngle=261, predictedRotation=3, predictedRotationAgeMS=6789.9077
+V/WindowOrientationListener(  263): Result: currentRotation=0, proposedRotation=-1, predictedRotation=3, timeDeltaMS=70.0, isAccelerating=true, isFlat=false, isSwinging=false, timeUntilSettledMS=0.0, timeUntilAccelerationDelayExpiredMS=500.0, timeUntilFlatDelayExpiredMS=0.0, timeUntilSwingDelayExpiredMS=0.0
+
+Here, predictedRotation=3 means PORTRAIT, maybe, while proposedRotation is set to -1 ... why?
+
+Probably as a result of "ignored" data like below
+
+V/WindowOrientationListener(  257): Raw acceleration vector: x=-9.0, y=10.0, z=0.0, magnitude=13.453624
+V/WindowOrientationListener(  257): Filtered acceleration vector: x=-9.165381, y=10.271454, z=0.16048923, magnitude=13.767089
+V/WindowOrientationListener(  257): Ignoring sensor data, no predicted rotation: tiltAngle=1, orientationAngle=318
+V/WindowOrientationListener(  257): Result: currentRotation=0, proposedRotation=-1, predictedRotation=-1, timeDeltaMS=69.726, isAccelerating=false, isFlat=false
+
+Which are restulting from checks performed in
+
+ isOrientationAngleAcceptable()
+ isPredictedRotationAcceptable()
+ isTiltAngleAcceptable()
+
+ - - - - - -
+
+Since parameters for low-pass filtering (to extract gravity) are based on real m/s^2 values, I had to add conversion in 
+
+ device/renesas/emev/sensors/BMA220Sensor.cpp  BMA220Sensor::processEvent()
+
+Indeed, after fixing calibration, rotation is correctly propagated when I rotate. This is for example in portrait:
+
+V/WindowOrientationListener(  258): Raw acceleration vector: x=-7.967903, y=1.2258313, z=5.5162406, magnitude=9.768268
+V/WindowOrientationListener(  258): Filtered acceleration vector: x=-7.772365, y=1.587711, z=5.426243, magnitude=9.611171
+V/WindowOrientationListener(  258): Predicted: tiltAngle=34, orientationAngle=282, predictedRotation=3, predictedRotationAgeMS=349.939
+V/WindowOrientationListener(  258): Result: currentRotation=0, proposedRotation=3, predictedRotation=3, timeDeltaMS=139.97, isAccelerating=false, isFlat=false, isSwinging=false, timeUntilSettledMS=0.0, timeUntilAccelerationDelayExpiredMS=0.0, timeUntilFlatDelayExpiredMS=0.0, timeUntilSwingDelayExpiredMS=0.0
+
+Note the magnitute of about 9.8 m/s^2 which is closer to real "g", than without calibration (was 16).
+
+NOTE - Home launcher screen is never re-oriented. Not sure why... But other screens (e.g. Systems Settings, do get re-oriented)
