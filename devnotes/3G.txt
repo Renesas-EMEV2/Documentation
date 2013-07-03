@@ -200,7 +200,6 @@ Also this would maybe allow me to use this command to enable my specific device:
  
 Rebuild with above config and.. voilà: enabling 3G module I get:
 
-
 <6>usb 1-1.1: new high speed USB device using emxx-ehci-driver and address 3
 <6>option 1-1.1:1.0: GSM modem (1-port) converter detected
 <6>usb 1-1.1: GSM modem (1-port) converter now attached to ttyUSB0
@@ -563,7 +562,7 @@ esac
 /system/bin/setprop "net.ppp1.dns1" ""
 /system/bin/setprop "net.ppp1.dns2" ""
 /system/bin/setprop "net.ppp1.local-ip" ""
-/system/bin/setprop "net.ppp1.remote-ip" ""
+/system/bin/setpro "net.ppp1.remote-ip" ""
 /system/bin/setprop "net.ppp1.gw" ""
 /system/bin/setprop "net.ppp1.if" ""
 -------------------------------------
@@ -939,7 +938,7 @@ Applying a patch to kernel (taken from a different code source), which handles m
 
 In any case, also in the GB firmware I have a similar behaviour: I can't use picocom to talk to modem thorugh /dev/ttyUSB*
 
-The following (for comparison), is what I get in logcat when I connect to 3G network:
+The following (for comparison), is what I get in GB logcat when I connect to 3G network:
 
 I/chat    (  566): chat_send (3)
 I/chat    (  566): timeout set to 3 seconds
@@ -1051,8 +1050,579 @@ where libreference-ril.so and init.gprs-pppd are from Liu's mail, I don't get AN
 
  - - - - 
 
+ 17 Jun 2013
+
+Trying to compile zte_ev.c module taken from kernel 3.9 ...
+
+Makes no difference when using picocom... I'm not even sure how to backprot that module.
+
+ - - - - 
+
+Going back to the approach I tried already, using a chat script and pppd:
+
+# /system/etc/ppp/dialTest
+# Use it with script like below
+#  /system/bin/pppd /dev/ttyUSB1 115200
+#     persist defaultroute usepeerdns -detach 
+#     crtscts noauth debug connect 
+#     "/system/xbin/chat -v -s -f /system/etc/ppp/dialTest"
+TIMEOUT 40
+ABORT "DELAYED"
+ABORT "BUSY"
+ABORT "ERROR"
+ABORT "NO DIALTONE"
+ABORT "NO CARRIER"
+TIMEOUT 40
+'' \nAT
+OK AT&F0
+OK ATE0V1&C1&D2
+OK ATE0
+OK AT+CGDCONT=1,"IP","web.omnitel.it"
+OK ATDT*99#
+CONNECT ''
+
+The following is what I get from pppd command:
+
+timeout set to 40 seconds
+abort on (DELAYED)
+abort on (BUSY)
+abort on (ERROR)
+abort on (NO DIALTONE)
+abort on (NO CARRIER)
+timeout set to 40 seconds
+send (^JAT^M)
+expect (OK)
+^M
+OK
+ -- got it
+
+send (AT&F0^M)
+expect (OK)
+^M
+^M
+OK
+ -- got it
+
+send (ATE0V1&C1&D2^M)
+expect (OK)
+^M
+^M
+OK
+ -- got it
+
+send (ATE0^M)
+expect (OK)
+^M
+^M
+OK
+ -- got it
+
+send (AT+CGDCONT=1,"IP","web.omnitel.it"^M)
+expect (OK)
+^M
+^M
+OK
+ -- got it
+
+send (ATDT*99#^M)
+expect (CONNECT)
+^M
+^M
+ERROR
+ -- failed
+Failed (ERROR)
+
+ - - - -
+
+I tried this being off a 3G signal - need to try with full signal, and service credit...
+
+Note AT/OK feedback, which I can't see with picocom ! Why ?
+
+ - - - - -
+
+Back to the approach described in 
+
+ http://processors.wiki.ti.com/index.php/Android-USB-3G-Modem-Integration
+
+and 
+
+ http://e2e.ti.com/support/embedded/android/f/509/p/256087/896068.aspx#896068
+
+Patches to reference-ril are already applied.
+
+Using ttyUSB3 as pppd device (hardcoded in reference-ril)
+
+Using ttyUSB1 as rild device:
+
+RIL deamon added to init.emxx.rc, as:
+
+service ril-daemon /system/bin/rild -l /system/lib/libreference-ril.so -- -d /dev/ttyUSB1
+	class main
+	socket rild stream 660 root radio
+	socket rild-debug stream 660 radio system
+	user root
+	group radio cache inet misc audio sdcard_r sdcard_rw vpn net_admin
+
+Completing integration steps described in BOTH links above and rebuilding.
+
+Testing ....
+
+Opening modem power I get a crash in generic logcat:
+
+F/libc    (   79): Fatal signal 11 (SIGSEGV) at 0x00000004 (code=1), thread 96 (rild)
+I/DEBUG   (   71): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+I/DEBUG   (   71): Build fingerprint: 'emxx/renesas_emev/emev:4.1.1/JRO03L/eng.ffxx68.20130611.135104:eng/test-keys'
+I/DEBUG   (   71): pid: 79, tid: 96, name: rild  >>> /system/bin/rild <<<
+I/DEBUG   (   71): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 00000004
+I/DEBUG   (   71):     r0 2a0064b0  r1 40241cf4  r2 4013d35b  r3 00000000
+...
+I/DEBUG   (   71):          40241cbc  4013cbb7  /system/lib/libreference-ril.so (at_send_command_singleline+18)
+I/DEBUG   (   71):          40241cc0  40241cf4  
+I/DEBUG   (   71):          40241cc4  4013d35b  /system/lib/libreference-ril.so
+...
+
+
+At the same time, from radio log (logcat -b radio), I have the error:
+
+...
+D/RIL-AT  ( 1265): AT> AT+CGSN
+D/RILJ    (  374): [0063]< GET_IMEI 
+D/RIL-AT  ( 1265): AT< 352037031361039
+D/RIL-AT  ( 1265): AT< OK
+D/RILC    ( 1265): [0064]< GET_IMEISV {352037031361039}
+D/RILC    ( 1265): [0065]> GET_SIM_STATUS 
+D/RIL     ( 1265): onRequest: GET_SIM_STATUS
+D/RIL-AT  ( 1265): at_send_command_singleline 1
+D/RIL-AT  ( 1265): AT> AT+CPIN?
+D/RILJ    (  374): [0064]< GET_IMEISV 
+D/RIL-AT  ( 1265): AT< +CME ERROR: 14
+D/RIL-AT  ( 1265): at_send_command_singleline 2
+D/RIL-AT  ( 1265): at_send_command_singleline 4
+D/RILC    ( 1265): [0065]< GET_SIM_STATUS {[app_type=1,app_state=1,perso_substate=0,                    aid_ptr=(null),app_label_ptr=(null),pin1_replaced=0,pin1=0,pin2=0],}
+D/RILC    ( 1265): [0066]> OPERATOR 
+D/RIL     ( 1265): onRequest: OPERATOR
+D/RIL-AT  ( 1265): AT> AT+COPS=3,0;+COPS?;+COPS=3,1;+COPS?;+COPS=3,2;+COPS?
+D/RILJ    (  374): [0065]< GET_SIM_STATUS IccCardState {CARDSTATE_PRESENT,PINSTATE_UNKNOWN,num_apps=1,gsm_id=0{APPTYPE_SIM,APPSTATE_DETECTED},cmda_id=8,ism_id=8}
+E/GSM     (  374): [IccCard] Invalid Subscription Application index:8
+E/GSM     (  374): [IccCard] Invalid Subscription Application index:8
+D/GSM     (  374): [IccCard] USIM=NOT_READY CSIM=ABSENT
+D/RILB    (  374): getLteOnCdmaMode=0 curVal=-1 product_type='' lteOnCdmaProductType=''
+E/GSM     (  374): [IccCard] Invalid Subscription Application index:8
+D/RIL-AT  ( 1265): AT< ERROR
+E/RIL     ( 1265): requestOperator must not return error when radio is on
+D/RILC    ( 1265): [0066]< OPERATOR fails by E_GENERIC_FAILURE
+D/RILC    ( 1265): [0067]> DATA_REGISTRATION_STATE 
+D/RIL     ( 1265): onRequest: DATA_REGISTRATION_STATE
+D/RIL-AT  ( 1265): at_send_command_singleline 1
+D/RIL-AT  ( 1265): AT> AT+CGREG?
+D/RILJ    (  374): [0066]< OPERATOR error: com.android.internal.telephony.CommandException: GENERIC_FAILURE
+E/GSM     (  374): [GsmSST] RIL implementation has returned an error where it must succeedcom.android.internal.telephony.CommandException: GENERIC_FAILURE
+D/RIL-AT  ( 1265): AT< ERROR
+D/RIL-AT  ( 1265): at_send_command_singleline 2
+D/RIL-AT  ( 1265): at_send_command_singleline 4
+I/RILJ    (  374): 'rild' socket closed
+I/RILJ    (  374): java.io.IOException: Connection reset by peer
+I/RILJ    (  374): 	at android.net.LocalSocketImpl.readba_native(Native Meth
+...
+
+The 'rild' socket closed is a sign that ril process has crashed.
+
+Note however that:
+
+1) the AT chatting with modem works fine now (but picocom still does NOT work!)
+2) I'm off 3G network and getting several ERROR returning to AT commands, for that reason.
+
+ - - - - 
+
+Testing in 3G network, the signal indicator seems working... This is for two bars level:
+
+..
+D/RILJ    (  379): [0118]> SIGNAL_STRENGTH
+D/RILC    ( 1100): [0118]> SIGNAL_STRENGTH 
+D/RIL     ( 1100): onRequest: SIGNAL_STRENGTH
+D/RIL-AT  ( 1100): at_send_command_singleline 1
+D/RIL-AT  ( 1100): AT> AT+CSQ
+D/RIL-AT  ( 1100): AT< +CSQ: 7,99
+D/RIL-AT  ( 1100): AT< OK
+D/RIL-AT  ( 1100): at_send_command_singleline 2
+D/RIL-AT  ( 1100): at_send_command_singleline 4
+I/RIL     ( 1100): SignalStrength 7 BER: 99
+D/RILC    ( 1100): [UNSL]< UNSOL_SIGNAL_STRENGTH {[signalStrength=7,bitErrorRate=99,                CDMA_SS.dbm=0,CDMA_SSecio=0,                EVDO_SS.dbm=0,EVDO_SS.ecio=0,                EVDO_SS.signalNoiseRatio=0,                LTE_SS.signalStrength=0,LTE_SS.rsrp=0,LTE_SS.rsrq=0,                LTE_SS.rssnr=0,LTE_SS.cqi=0]}
+...
+
+Need more testing... with a fully data-enabled SIM
+
+ - - - - 
+
+ 24 Jun
+
+Also trying a "blind" test with the JB AOSP original libreference-ril.so.
+
+Still getting the same crash as above, which is probably due to the modem not being ready yet.
+
+Then, I also get as the following error:
+
+D/RILJ    (  390): [0131]> SIGNAL_STRENGTH
+D/RILC    ( 1297): [0131]> SIGNAL_STRENGTH 
+D/RIL     ( 1297): onRequest: SIGNAL_STRENGTH
+D/AT      ( 1297): AT> AT+CSQ
+D/AT      ( 1297): AT< +CSQ: 11,99
+D/AT      ( 1297): AT< OK
+E/RILC    ( 1297): invalid response length
+D/RILC    ( 1297): [0131]< SIGNAL_STRENGTH
+D/RILJ    (  390): [0131]< SIGNAL_STRENGTH error: com.android.internal.telephony.CommandException: INVALID_RESPONSE
+
+I think this reference-ril is specific to some type of modem. E.g. there's a reference to a /dev/qmi which is for Qualcomm only, I think.
+
+Hence, as I'm having more issues... rollbacking to the "custom" one.
+
+ - - - - 
+
+The crash is resolved adding a 5-sec sleep before polling SIM, in onRadioPowerOn().
+
+Now I need to make more tests in presence of full 3G service ....
+
+ - - - -
+
+This is returned when I get
+
+D/RILC    ( 1094): [0047]> OPERATOR 
+D/RIL     ( 1094): onRequest: OPERATOR
+D/AT      ( 1094): AT> AT+COPS=3,0;+COPS?;+COPS=3,1;+COPS?;+COPS=3,2;+COPS?
+D/AT      ( 1094): AT< +COPS: 0,0,"vodafone IT",2
+D/AT      ( 1094): AT< +COPS: 0,1,"voda IT",2
+D/AT      ( 1094): AT< +COPS: 0,2,"22210",2
+D/AT      ( 1094): AT< OK
+D/RILC    ( 1094): [0047]< OPERATOR {vodafone IT,voda IT,22210}
+D/RILC    ( 1094): [0048]> DATA_REGISTRATION_STATE 
+D/RIL     ( 1094): onRequest: DATA_REGISTRATION_STATE
+D/AT      ( 1094): AT> AT+CGREG?
+D/RILJ    (  377): [0047]< OPERATOR {vodafone IT, voda IT, 22210}
+D/AT      ( 1094): AT< +CGREG: 0,1
+D/AT      ( 1094): AT< OK
+D/RILC    ( 1094): [0048]< DATA_REGISTRATION_STATE {1,ffffffff,ffffffff}
+D/RILC    ( 1094): [0049]> VOICE_REGISTRATION_STATE 
+D/RIL     ( 1094): onRequest: VOICE_REGISTRATION_STATE
+D/AT      ( 1094): AT> AT+CREG?
+D/RILJ    (  377): [0048]< DATA_REGISTRATION_STATE {1, ffffffff, ffffffff}
+D/AT      ( 1094): AT< +CREG: 0,1
+D/AT      ( 1094): AT< OK
+D/RILC    ( 1094): [0049]< VOICE_REGISTRATION_STATE {1,ffffffff,ffffffff}
+D/RILC    ( 1094): [0050]> QUERY_NETWORK_SELECTION_MODE 
+D/RIL     ( 1094): onRequest: QUERY_NETWORK_SELECTION_MODE
+D/AT      ( 1094): AT> AT+COPS?
+D/RILJ    (  377): [0049]< VOICE_REGISTRATION_STATE {1, ffffffff, ffffffff}
+E/GSM     (  377): [GsmSST] error parsing RegistrationState: java.lang.NumberFormatException: Invalid int: "ffffffff"
+D/AT      ( 1094): AT< +COPS: 0,2,"22210",2
+D/AT      ( 1094): AT< OK
+
+....
+
+D/GSM     (  377): [GsmDCT] createAllApnList: selection=numeric = '22210' and carrier_enabled = 1
+D/GSM     (  377): [GsmDCT] createAllApnList: No APN found for carrier: 22210
+D/GSM     (  377): [GsmDCT] createAllApnList: X mAllApns=[]
+
+
+This error is because nothing is returned by this query, in 
+
+ frameworks/base/telephony/java/com/android/internal/telephony/gsm/GsmDataConnectionTracker.java
+
+            String selection = "numeric = '" + operator + "'";
+            // query only enabled apn.
+            // carrier_enabled : 1 means enabled apn, 0 disabled apn.
+            selection += " and carrier_enabled = 1";
+            if (DBG) log("createAllApnList: selection=" + selection);
+
+            Cursor cursor = mPhone.getContext().getContentResolver().query(
+                    Telephony.Carriers.CONTENT_URI, null, selection, null, null);
+
+
+Trying seaching for carriers directly:
+
+adb shell sqlite3 /data/data/com.android.providers.telephony/databases/telephony.db "select * from carriers;"
+
+Returns nothing at all! The 'carriers' table is empty.
+
+This should be filled up at install, or build time (?), starting from the file
+
+  system/etc/apns-conf.xml
+
+which is NOT empty....
+
+ - - - - -
+
+During boot I noticed this:
+
+W/TelephonyProvider(  377): onCreate: confFile=/system/etc/apns-conf.xml oldCheckSum=-1
+
+Rebuilt with a few more debug logs in loadApns(), in
+
+./providers/TelephonyProvider/src/com/android/providers/telephony/TelephonyProvider.java
+
+but still getting the same output, I can't even find a call to loadApns() ....
+
+ - - - - -
+
+Trying forcing 'true' for isLteOnCdma().
+
+This time I get from logcat:
+
+W/TelephonyProvider(  385): onCreate: confFile=/system/etc/apns-conf.xml oldCheckSum=-1
+W/TelephonyProvider(  385): onCreate: newCheckSum=3704368936
+W/TelephonyProvider(  385): Rebuilding Telephony.db
+D/TelephonyProvider(  385): Entering loadApns...
+D/TelephonyProvider(  385): Created 0 APN rows
+D/TelephonyProvider(  385): Entering loadApns...
+D/TelephonyProvider(  385): Created 1434 APN rows
+
+And, on enabling radio, from radio logcat:
+
+...
+D/GSM     (  385): [GsmDCT] onRecordsLoaded: createAllApnList
+D/GSM     (  385): [GsmDCT] createAllApnList: selection=numeric = '22210' and carrier_enabled = 1
+D/GSM     (  385): [GsmDCT] createApnList: X result=[[ApnSettingV2] MMS Vodafone, 108, 22210, mms.vodafone.it, null, http://mms.vodafone.it/servlets/mms, 10.128.224.10, 80, null, -1, mms, IP, IP, true, 0, [ApnSettingV2] Acc. Internet da cell, 109, 22210, mobile.vodafone.it, null, null, null, null, null, -1, default | supl, IP, IP, true, 0, [ApnSettingV2] Tethering Internet, 110, 22210, web.omnitel.it, null, null, null, null, null, -1, dun, IP, IP, true, 0]
+D/GSM     (  385): [GsmDCT] getPreferredApn: X not found
+D/GSM     (  385): [GsmDCT] createAllApnList: mPreferredApn=null
+D/GSM     (  385): [GsmDCT] createAllApnList: X mAllApns=[[ApnSettingV2] MMS Vodafone, 108, 22210, mms.vodafone.it, null, http://mms.vodafone.it/servlets/mms, 10.128.224.10, 80, null, -1, mms, IP, IP, true, 0, [ApnSettingV2] Acc. Internet da cell, 109, 22210, mobile.vodafone.it, null, null, null, null, null, -1, default | supl, IP, IP, true, 0, [ApnSettingV2] Tethering Internet, 110, 22210, web.omnitel.it, null, null, null, null, null, -1, dun, IP, IP, true, 0]
+
+which looks better now, as I now get the APNs I expect.
+
+I can also select one of these, from Settings - Wireless - More - Mobile networks - Access Point Names.
+
+ - - - - -
+
+When entering 3G field, I get
+
+(radio logcat)
+
+D/GSM     (  380): [GsmDCT] isDataPossible(cbs): possible=true isDataAllowed=true apnTypePossible=true apnContextisEnabled=false apnContextState()=IDLE
+D/GSM     (  380): [GsmDCT] get active apn string for type:cbs
+I/RIL     (   79): Executing '/system/bin/pppd /dev/ttyUSB3 115200 linkname datakey unit 1 crtscts usepeerdns noauth defaultroute noipdefault ipcp-accept-local ipcp-accept-remote ipcp-max-failure 30 lcp-echo-interval 5 lcp-echo-failure 30 modem dump debug kdebug 8'
+I/RIL     (   79): Waiting For Property
+E/RIL     (   79): Timeout waiting net.ppp1.local-ip - giving up!
+
+(system logcat)
+
+I/pppd    ( 1517): pppd options in effect:
+I/pppd    ( 1517): debug		# (from command line)
+I/pppd    ( 1517): kdebug 8		# (from command line)
+I/pppd    ( 1517): linkname datakey		# (from command line)
+I/pppd    ( 1517): unit 1		# (from command line)
+I/pppd    ( 1517): dump		# (from command line)
+I/pppd    ( 1517): noauth		# (from command line)
+I/pppd    ( 1517): /dev/ttyUSB3		# (from command line)
+I/pppd    ( 1517): 115200		# (from command line)
+I/pppd    ( 1517): crtscts		# (from command line)
+I/pppd    ( 1517): modem		# (from command line)
+I/pppd    ( 1517): lcp-echo-failure 30		# (from command line)
+I/pppd    ( 1517): lcp-echo-interval 5		# (from command line)
+I/pppd    ( 1517): ipcp-accept-local		# (from command line)
+I/pppd    ( 1517): ipcp-accept-remote		# (from command line)
+I/pppd    ( 1517): noipdefault		# (from command line)
+I/pppd    ( 1517): ipcp-max-failure 30		# (from command line)
+I/pppd    ( 1517): defaultroute		# (from command line)
+I/pppd    ( 1517): usepeerdns		# (from command line)
+D/pppd    ( 1518): using channel 1
+I/pppd    ( 1518): Using interface ppp1
+I/pppd    ( 1518): Connect: ppp1 <--> /dev/ttyUSB3
+D/pppd    ( 1518): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0xd2320724> <pcomp> <accomp>]
+D/pppd    ( 1518): rcvd [LCP ConfReq id=0x0 <asyncmap 0x0> <auth chap MD5> <magic 0x1268532> <pcomp> <accomp>]
+D/pppd    ( 1518): No auth is possible
+D/pppd    ( 1518): sent [LCP ConfRej id=0x0 <auth chap MD5>]
+D/pppd    ( 1518): rcvd [LCP ConfAck id=0x1 <asyncmap 0x0> <magic 0xd2320724> <pcomp> <accomp>]
+D/pppd    ( 1518): rcvd [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x1268532> <pcomp> <accomp>]
+D/pppd    ( 1518): sent [LCP ConfAck id=0x1 <asyncmap 0x0> <magic 0x1268532> <pcomp> <accomp>]
+D/pppd    ( 1518): sent [LCP EchoReq id=0x0 magic=0xd2320724]
+D/pppd    ( 1518): sent [CCP ConfReq id=0x1 <deflate 15> <deflate(old#) 15> <bsd v1 15>]
+D/pppd    ( 1518): sent [IPCP ConfReq id=0x1 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 0.0.0.0> <ms-dns3 0.0.0.0>]
+D/pppd    ( 1518): rcvd [LCP DiscReq id=0x2 magic=0x1268532]
+D/pppd    ( 1518): rcvd [LCP EchoRep id=0x0 magic=0x1268532 01 26 85 32]
+D/pppd    ( 1518): rcvd [LCP ProtRej id=0x3 80 fd 01 01 00 0f 1a 04 78 00 18 04 78 00 15 03 2f]
+D/pppd    ( 1518): rcvd [IPCP ConfNak id=0x1 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1518): sent [IPCP ConfReq id=0x2 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1518): rcvd [IPCP ConfNak id=0x2 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1518): sent [IPCP ConfReq id=0x3 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1518): rcvd [IPCP ConfNak id=0x3 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1518): sent [IPCP ConfReq id=0x4 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1518): rcvd [IPCP ConfNak id=0x4 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1518): sent [IPCP ConfReq id=0x5 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1518): rcvd [IPCP ConfReq id=0x0]
+D/pppd    ( 1518): sent [IPCP ConfNak id=0x0 <addr 0.0.0.0>]
+D/pppd    ( 1518): rcvd [IPCP ConfRej id=0x5 <compress VJ 0f 01>]
+D/pppd    ( 1518): sent [IPCP ConfReq id=0x6 <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1518): rcvd [IPCP ConfReq id=0x1]
+D/pppd    ( 1518): sent [IPCP ConfAck id=0x1]
+D/pppd    ( 1518): rcvd [IPCP ConfNak id=0x6 <addr 109.112.40.122> <ms-dns1 83.224.66.134> <ms-dns3 83.224.70.93>]
+D/pppd    ( 1518): sent [IPCP ConfReq id=0x7 <addr 109.112.40.122> <ms-dns1 83.224.66.134> <ms-dns3 83.224.70.93>]
+D/pppd    ( 1518): rcvd [IPCP ConfAck id=0x7 <addr 109.112.40.122> <ms-dns1 83.224.66.134> <ms-dns3 83.224.70.93>]
+W/pppd    ( 1518): Could not determine remote IP address: defaulting to 10.64.64.65
+I/pppd    ( 1518): local  IP address 109.112.40.122
+I/pppd    ( 1518): remote IP address 10.64.64.65
+I/pppd    ( 1518): primary   DNS address 83.224.66.134
+I/pppd    ( 1518): secondary DNS address 83.224.70.93
+W/pppd    ( 1518): Can't execute /etc/ppp/ip-up-datakey: Invalid argument
+
+This last line is unexpected to me. 
+
+Question posted in http://e2e.ti.com/support/embedded/android/f/509/p/256087/960360.aspx#960360
+
+ - - - -
+
+Ok, it was just a missing exec permission on the scripts!
+
+ chmod 755 /etc/ppp/ip-*-datakey
+
+Then, I finally succesfully got the 3G connection working!
+
+I/RIL     (   79): Executing '/system/bin/pppd /dev/ttyUSB3 115200 linkname datakey unit 1 crtscts usepeerdns noauth defaultroute noipdefault ipcp-accept-local ipcp-accept-remote ipcp-max-failure 30 lcp-echo-interval 5 lcp-echo-failure 30 modem dump debug kdebug 8'
+I/RIL     (   79): Waiting For Property
+I/RIL     (   79): Got net.ppp1.local-ip: 109.112.0.246
+D/RILC    (   79): [0411]< SETUP_DATA_CALL {[status=0,retry=-1,cid=1,up,1075040641,109.112.0.246,83.224.66.134 83.224.70.93,]}
+D/RILJ    (  380): [0411]< SETUP_DATA_CALL DataCallState: {version=7 status=0 retry=-1 cid=1 active=2 type=PPP' ifname='ppp1' addresses=[109.112.0.246] dnses=[83.224.66.134,83.224.70.93] gateways=[]}
+...
+
+I/pppd    ( 1860): pppd options in effect:
+I/pppd    ( 1860): debug		# (from command line)
+I/pppd    ( 1860): kdebug 8		# (from command line)
+I/pppd    ( 1860): linkname datakey		# (from command line)
+I/pppd    ( 1860): unit 1		# (from command line)
+I/pppd    ( 1860): dump		# (from command line)
+I/pppd    ( 1860): noauth		# (from command line)
+I/pppd    ( 1860): /dev/ttyUSB3		# (from command line)
+I/pppd    ( 1860): 115200		# (from command line)
+I/pppd    ( 1860): crtscts		# (from command line)
+I/pppd    ( 1860): modem		# (from command line)
+I/pppd    ( 1860): lcp-echo-failure 30		# (from command line)
+I/pppd    ( 1860): lcp-echo-interval 5		# (from command line)
+I/pppd    ( 1860): ipcp-accept-local		# (from command line)
+I/pppd    ( 1860): ipcp-accept-remote		# (from command line)
+I/pppd    ( 1860): noipdefault		# (from command line)
+I/pppd    ( 1860): ipcp-max-failure 30		# (from command line)
+I/pppd    ( 1860): defaultroute		# (from command line)
+I/pppd    ( 1860): usepeerdns		# (from command line)
+D/pppd    ( 1861): using channel 5
+I/pppd    ( 1861): Using interface ppp1
+I/pppd    ( 1861): Connect: ppp1 <--> /dev/ttyUSB3
+D/pppd    ( 1861): sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x49e174ae> <pcomp> <accomp>]
+D/pppd    ( 1861): rcvd [LCP ConfReq id=0x0 <asyncmap 0x0> <auth chap MD5> <magic 0xfe9ca8> <pcomp> <accomp>]
+D/pppd    ( 1861): No auth is possible
+D/pppd    ( 1861): sent [LCP ConfRej id=0x0 <auth chap MD5>]
+D/pppd    ( 1861): rcvd [LCP ConfAck id=0x1 <asyncmap 0x0> <magic 0x49e174ae> <pcomp> <accomp>]
+D/pppd    ( 1861): rcvd [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0xfe9ca8> <pcomp> <accomp>]
+D/pppd    ( 1861): sent [LCP ConfAck id=0x1 <asyncmap 0x0> <magic 0xfe9ca8> <pcomp> <accomp>]
+D/pppd    ( 1861): sent [LCP EchoReq id=0x0 magic=0x49e174ae]
+D/pppd    ( 1861): sent [CCP ConfReq id=0x1 <deflate 15> <deflate(old#) 15> <bsd v1 15>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0x1 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 0.0.0.0> <ms-dns3 0.0.0.0>]
+D/pppd    ( 1861): rcvd [LCP DiscReq id=0x2 magic=0xfe9ca8]
+D/pppd    ( 1861): rcvd [LCP EchoRep id=0x0 magic=0xfe9ca8 00 fe 9c a8]
+D/pppd    ( 1861): rcvd [LCP ProtRej id=0x3 80 fd 01 01 00 0f 1a 04 78 00 18 04 78 00 15 03 2f]
+D/pppd    ( 1861): rcvd [IPCP ConfNak id=0x1 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0x2 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1861): rcvd [IPCP ConfNak id=0x2 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0x3 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1861): rcvd [IPCP ConfNak id=0x3 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0x4 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1861): rcvd [IPCP ConfNak id=0x4 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0x5 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1861): sent [LCP EchoReq id=0x1 magic=0x49e174ae]
+D/pppd    ( 1861): rcvd [LCP EchoRep id=0x1 magic=0xfe9ca8 0a 0b 0c 0e]
+D/pppd    ( 1861): rcvd [IPCP ConfNak id=0x5 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0x6 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1861): rcvd [IPCP ConfNak id=0x6 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0x7 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1861): rcvd [IPCP ConfNak id=0x7 <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14> <ms-wins 10.11.12.13> <ms-wins 10.11.12.14>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0x8 <compress VJ 0f 01> <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1861): rcvd [IPCP ConfReq id=0x0]
+D/pppd    ( 1861): sent [IPCP ConfNak id=0x0 <addr 0.0.0.0>]
+D/pppd    ( 1861): rcvd [IPCP ConfRej id=0x8 <compress VJ 0f 01>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0x9 <addr 0.0.0.0> <ms-dns1 10.11.12.13> <ms-dns3 10.11.12.14>]
+D/pppd    ( 1861): rcvd [IPCP ConfReq id=0x1]
+D/pppd    ( 1861): sent [IPCP ConfAck id=0x1]
+D/pppd    ( 1861): rcvd [IPCP ConfNak id=0x9 <addr 109.112.0.246> <ms-dns1 83.224.66.134> <ms-dns3 83.224.70.93>]
+D/pppd    ( 1861): sent [IPCP ConfReq id=0xa <addr 109.112.0.246> <ms-dns1 83.224.66.134> <ms-dns3 83.224.70.93>]
+D/pppd    ( 1861): rcvd [IPCP ConfAck id=0xa <addr 109.112.0.246> <ms-dns1 83.224.66.134> <ms-dns3 83.224.70.93>]
+W/pppd    ( 1861): Could not determine remote IP address: defaulting to 10.64.64.65
+I/pppd    ( 1861): local  IP address 109.112.0.246
+I/pppd    ( 1861): remote IP address 10.64.64.65
+I/pppd    ( 1861): primary   DNS address 83.224.66.134
+I/pppd    ( 1861): secondary DNS address 83.224.70.93
+D/pppd    ( 1861): Script /etc/ppp/ip-up-datakey started (pid 1862)
+D/pppd    ( 1861): Script /etc/ppp/ip-up-datakey finished (pid 1862), status = 0x0
+I/ActivityThread( 1898): Pub com.google.android.partnersetup.rlzappprovider: com.google.android.partnersetup.RlzAppProvider
+I/pppd    ( 1861): Hangup (SIGHUP)
+I/pppd    ( 1861): Modem hangup
+I/pppd    ( 1861): Connect time 1.1 minutes.
+I/pppd    ( 1861): Sent 56851 bytes, received 396518 bytes.
+D/pppd    ( 1861): Script /etc/ppp/ip-down-datakey started (pid 2012)
+I/pppd    ( 1861): Connection terminated.
+D/NetUtils(  261): android_net_utils_resetConnections in env=0x2a03f2b0 clazz=0xb6400001 iface=ppp1 mask=0x3
+D/ConnectivityService(  261): resetConnections(ppp1, 3)
+D/pppd    ( 1861): Script /etc/ppp/ip-down-datakey finished (pid 2012), status = 0x0
+
+ - - - - 
+
+Committing changes, with the label "Added 3G functionality", in 
+
+  kernel                                 (Livall_JB_3G)
+  hardware/ril                           (emev-4.1)
+  device/renesas/emev                    (emev-4.1)
+  packages/providers/TelephonyProvider   (emev-4.1)
+  .repo/manifests                        (emev-4.1)
+  
+ - - - - -
+
+Need to test the end-to-end build, before publishing.
+
+ - - - - -
+
+I'm not sure about SMS, if they work. But I don't care for the moment.
+
+ - - - - -
+
+ 2 Jul 2013
+
+I don't get the "3G", or any other label, next to the phone signal strength icon. Probably because of this message:
+
+ E/MobileDataStateTracker(  258): default: unknown network type: 0
+
+which comes from these, I think:
+
+D/RILC    (   79): [0039]> DATA_REGISTRATION_STATE 
+D/RIL     (   79): onRequest: DATA_REGISTRATION_STATE
+D/AT      (   79): AT> AT+CGREG?
+
+D/AT      (   79): AT< +CGREG: 0,1
+D/AT      (   79): AT< OK
+D/RILC    (   79): [0039]< DATA_REGISTRATION_STATE {1,ffffffff,ffffffff}
+
+E/GSM     (  389): [GsmSST] error parsing RegistrationState: java.lang.NumberFormatException: Invalid int: "ffffffff"
+
+becasue I can read this comment in requestRegistrationState() (reference-ril.c):
+
+     * finally, a +CGREG: answer may have a fifth value that corresponds
+     * to the network type, as in;
+     *
+     *   +CGREG: n, stat [,lac, cid [,networkType]]
+
+Looks like modem returns just n=0, stat=1 from CGREG and nothing about lc, cig or networkType.
+
+Need to get it differently?
+
+Looking at ZTE MFxxx AT commands docs, this is the one to use, I think.
+
+ +ZPAS?
+ returning: <CR><LF>+ZPAS: <network>,<srv_domain><CR><LF>OK<CR><LF>
+
+Example:
+
+D/AT      (   79): AT> AT+ZPAS?
+D/AT      (   79): AT< +ZPAS: "HSPA","CS_PS"
+D/AT      (   79): AT< OK
+
+ ...
 
 
 
- 
+
+
 
