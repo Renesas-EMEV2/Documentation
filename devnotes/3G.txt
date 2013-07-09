@@ -1619,7 +1619,49 @@ D/AT      (   79): AT> AT+ZPAS?
 D/AT      (   79): AT< +ZPAS: "HSPA","CS_PS"
 D/AT      (   79): AT< OK
 
- ...
+  - - - - 
+
+ 4 Jul
+
+Trying to fix the missing network type label...
+
+I added ZPAS handling in requestRegistrationState, so that:
+
+D/AT      (   78): AT< +CREG: 2,1, 88BD, E582
+D/AT      (   78): AT< OK
+D/AT      (   78): AT> AT+ZPAS?
+D/AT      (   78): AT< +ZPAS: "HSPA","CS_PS"
+D/AT      (   78): AT< OK
+D/RIL     (   78): ZPAS network type: HSPA = 11
+D/RILC    (   78): [0098]< VOICE_REGISTRATION_STATE {1,88bd,e582,11}
+D/RILC    (   78): [0099]> QUERY_NETWORK_SELECTION_MODE 
+D/RIL     (   78): onRequest: QUERY_NETWORK_SELECTION_MODE
+D/AT      (   78): AT> AT+COPS?
+D/RILJ    (  370): [0098]< VOICE_REGISTRATION_STATE {1, 88bd, e582, 11}
+D/AT      (   78): AT< +COPS: 0,2,"22210",2
+D/AT      (   78): AT< OK
+D/RILC    (   78): [0099]< QUERY_NETWORK_SELECTION_MODE {0}
+D/RILC    (   78): [0100]> SIM_IO (cmd=0xC0,efid=0x6F18,path=3F007F20,0,0,15,(null),pin2=(null),aid=(null))
+D/RIL     (   78): onRequest: SIM_IO
+D/AT      (   78): AT> AT+CRSM=192,28440,0,0,15
+D/RILJ    (  370): [0099]< QUERY_NETWORK_SELECTION_MODE {0}
+D/GSM     (  370): [GsmSST] Poll ServiceState done:  oldSS=[3 home null null null  Unknown CSS not supported -1 -1 RoamInd=-1 DefRoamInd=-1 EmergOnly=false] newSS=[0 home vodafone IT voda IT 22210  HSPA CSS not supported -1 -1 RoamInd=-1 DefRoamInd=-1 EmergOnly=false] oldGprs=1 newData=0 oldMaxDataCalls=1 mNewMaxDataCalls=1 oldReasonDataDenied=-1 mNewReasonDataDenied=-1 oldType=Unknown newType=HSPA
+D/GSM     (  370): [GsmSST] RAT switched Unknown -> HSPA at cell 58754
+
+I had to fix also handlePollStateResult, for EVENT_POLL_STATE_REGISTRATION, in GsmServiceStateTracker.java (but I'm not sure if it's necessary...).
+
+With this fix, I get a "3G" label next to the radio signal icon.
+
+Need to push fixes to github...
+
+ - - - - -
+
+I still don't receive SMSes, though I can send them!
+
+ - - - - -
+
+
+
 
 
 

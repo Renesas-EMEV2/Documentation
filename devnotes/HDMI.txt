@@ -1,0 +1,154 @@
+
+ HDMI integration
+
+ - - - - - 
+
+ 5 Jul 2013
+
+Copied IT6610 driver to my kenel branch, from Smallart kernel:
+
+$ git status
+# On branch Livall_JB
+# Changes not staged for commit:
+#   (use "git add <file>..." to update what will be committed)
+#   (use "git checkout -- <file>..." to discard changes in working directory)
+#
+#	modified:   arch/arm/mach-emxx/include/mach/emev_board.h
+#	modified:   arch/arm/mach-emxx/include/mach/fbcommon.h
+#	modified:   drivers/video/emxx/Kconfig
+#	modified:   drivers/video/emxx/Makefile
+#	modified:   drivers/video/emxx/emxx_fb.c
+#	modified:   drivers/video/emxx/emxx_lcdhw.c
+#	modified:   sound/arm/emxx-mixer.c
+#
+# Untracked files:
+#   (use "git add <file>..." to include in what will be committed)
+#
+#	arch/arm/mach-emxx/include/mach/emxx_hdmi_it6610.h
+#	drivers/video/emxx/it6610/
+
+Compilation OK.
+
+On bootup with USB mouse pluged in and HDMI plugged to my TV, I get these in dmesg
+
+<6>emxx_fb: registered device fb
+<4>hdmi_it6610_init ret!
+<4>hdmi_it6610_init ret=0!
+<4>hdmi_it6610_pf_probe!
+<4>i2c_hdmi_init!
+<4>i2c_hdmi_init =0!
+<4>hdmi_it6610_reset: hdmi it6610 reset
+<4>
+<4>hdmi_it6610_pf_probe: register_chrdev 0, it6610
+<4>hdmi_it6610_pf_probe: success
+
+but video display is still on tablet LCD, not on TV.
+
+ - - - - 
+
+Noticed these comments in drivers/video/emxx/emxx_lcdhw.c
+
+ * GPIO_P27 : HDMI  Hot-Plug-Detect (HPD), input
+
+ *                          LCD          HDMI     suspend
+ * LCD DISP(104)   IN       pull up       up       up
+ * LCD RST(103)    OUT       1            0        0
+ * HDMI HPD(27)    IN       pull down     dn       dn
+
+ * I remove HDMI HPD (GPIO_P27), must modify in u-boot, otherwise LCD maybe does not display
+ *	set HPD gpio_input and pull down
+ *
+
+So, maybe P27 pulldown should be handled in uboot, but I guess also in kernel, to detect whether HDMI is plugged in.
+
+But I can't find any handling of GPIO_P27, in either Smallart or Livall kernel code...
+
+It's probably handled fully in uboot? 
+
+With Smallar tablet, I get these from dmesg:
+
+dmesg.GB.working:<4>===== HDMI inserted =====
+dmesg.GB.working:<4>HDMI output mode, lcd backlight off.
+dmesg.GB.working:<4>===== HDMI removed =====
+
+message "===== HDMI inserted =====" is found in this fragment of code, 
+
+ drivers/video/emxx/it6610/cat6611_sys.c
+
+HDMITX_DevLoopProc()
+{
+	BYTE HPD, HPDChange ;
+
+	CheckHDMITX(&HPD,&HPDChange) ;
+	
+	if( HPDChange ){
+		if( HPD ){
+#ifdef CONFIG_EMXX_HDMI
+			printk("\n===== HDMI inserted =====\n");
+			hdmi_notifier_call_chain(EMXX_FB_OUTPUT_MODE_HDMI_720P, NULL);
+#endif
+ 
+and in turn, ChekcHDMITX is based upon a reading on I2C 
+
+    sysstat = HDMITX_ReadI2C_Byte(REG_SYS_STATUS) ;
+
+so, that means HDP is detected from the IT6610 chip (which has an input from HDP pin) and not from GPIO P27.
+
+Issue is whether HDMITX_DevLoopProc is ever called in my case ...
+
+In emxx_it6610.c probe function, irq hander seems initialized proerly, with IRQ received from GPIO_P6 as per schematics.
+
+Not sure what's still missing....
+
+ - - - -
+
+Also need to check whether GPIO_P27 is set as input and pulled down.
+
+At the moment, this is set in UBOOT board/emxx/emev/lowlevel_init_val.h by:
+
+1) GPIO PIN control:
+
+#define CHG_PINSEL_G000_VAL		0xff0bffeb
+
+1111 1111 0000 1011 1111 1111 1110 1011
+
+  P27 -> bit 27 = 1 (OK: select GPIO function)
+
+2) Pulldown control:
+
+#define CHG_PULL1_VAL			0x00000505  
+
+where GPIO_P27 is bits 4-7 all set to 0, which is NOT OK.
+
+Should be 0x00000555
+
+ 5 = 0111 = No Shmitt trigger + Enable Input + Pull Down + Enable Pull Up/down
+
+(P26 and P28 are now set as pulled-down inputs)
+
+  ... to build and test ...
+
+ - - - -
+
+ 8 Jul 2013
+
+Another thing I'm missing is in JB, system settings, HDMI options...
+
+Found this code in PhoneWindowManager.java:
+
+    void initializeHdmiState() {
+        boolean plugged = false;
+        // watch for HDMI plug messages if the hdmi switch exists
+        if (new File("/sys/devices/virtual/switch/hdmi/state").exists()) {
+            mHDMIObserver.startObserving("DEVPATH=/devices/virtual/switch/hdmi");
+            ...
+
+which is based upon kernel driver setting up an "hdmi" switch device on fs, as for example in this case:
+
+ https://github.com/defer/semc-kernel-msm8x60/commit/547110e9d048fd0a7c34d0ad305a240a080bfe4f
+
+We miss something like this in our kernel driver code.
+
+ - - - -
+
+

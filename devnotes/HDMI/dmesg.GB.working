@@ -1,0 +1,357 @@
+<6>Initializing cgroup subsys cpu
+<5>Linux version 2.6.35.7 (release@smallart-server23) (gcc version 4.4.3 (GCC) ) #1 SMP PREEMPT Tue Feb 7 01:06:05 CST 2012
+<4>CPU: ARMv7 Processor [411fc092] revision 2 (ARMv7), cr=10c57c7f
+<4>CPU: VIPT nonaliasing data cache, VIPT nonaliasing instruction cache
+<4>Machine: EMXX
+<4>Memory policy: ECC disabled, Data cache writealloc
+<7>On node 0 totalpages: 33024
+<7>free_area_init_node: node 0, pgdat c04dbf20, node_mem_map c05aa000
+<7>  Normal zone: 258 pages used for memmap
+<7>  Normal zone: 0 pages reserved
+<7>  Normal zone: 32766 pages, LIFO batch:7
+<7>On node 1 totalpages: 65536
+<7>free_area_init_node: node 1, pgdat c04dc5a0, node_mem_map d0002000
+<7>  Normal zone: 512 pages used for memmap
+<7>  Normal zone: 0 pages reserved
+<7>  Normal zone: 65024 pages, LIFO batch:15
+<7>On node 2 totalpages: 0
+<7>free_area_init_node: node 2, pgdat c04dcc20, node_mem_map c06bb000
+<4>  Normal zone: 1 pages exceeds realsize 0
+<7>On node 3 totalpages: 0
+<7>free_area_init_node: node 3, pgdat c04dd2a0, node_mem_map c06c3060
+<4>  Normal zone: 1 pages exceeds realsize 0
+<6>PERCPU: Embedded 6 pages/cpu @c06cc000 s3936 r8192 d12448 u65536
+<6>pcpu-alloc: s3936 r8192 d12448 u65536 alloc=16*4096
+<6>pcpu-alloc: [0] 0 [0] 1 
+<4>Built 2 zonelists in Zone order, mobility grouping on.  Total pages: 97790
+<5>Kernel command line: root=/dev/mmcblk0p5 noinitrd init=/init console=ttyS0,115200n8n SELINUX_INIT=no mem=129M@0x40000000 mem=256m@0x50000000 rw video=qfb: ip=none rootfstype=ext3 rootwait
+<6>PID hash table entries: 2048 (order: 1, 8192 bytes)
+<6>Dentry cache hash table entries: 65536 (order: 6, 262144 bytes)
+<6>Inode-cache hash table entries: 32768 (order: 5, 131072 bytes)
+<6>Memory: 129MB 256MB = 385MB total
+<5>Memory: 384804k/384804k available, 9436k reserved, 0K highmem
+<5>Virtual kernel memory layout:
+<5>    vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+<5>    fixmap  : 0xfff00000 - 0xfffe0000   ( 896 kB)
+<5>    DMA     : 0xffc00000 - 0xffe00000   (   2 MB)
+<5>    vmalloc : 0xe0800000 - 0xf0000000   ( 248 MB)
+<5>    lowmem  : 0xc0000000 - 0xe0000000   ( 512 MB)
+<5>    modules : 0xbf000000 - 0xc0000000   (  16 MB)
+<5>      .init : 0xc0008000 - 0xc0085000   ( 500 kB)
+<5>      .text : 0xc0085000 - 0xc04b2000   (4276 kB)
+<5>      .data : 0xc04cc000 - 0xc0500a20   ( 211 kB)
+<6>Hierarchical RCU implementation.
+<6>	RCU-based detection of stalled CPUs is disabled.
+<6>	Verbose stalled-CPUs detection is disabled.
+<6>NR_IRQS:374
+<4>Console: colour dummy device 80x30
+<6>Calibrating delay loop... 1061.68 BogoMIPS (lpj=5308416)
+<6>pid_max: default: 32768 minimum: 301
+<4>Mount-cache hash table entries: 512
+<6>Initializing cgroup subsys cpuacct
+<6>Initializing cgroup subsys freezer
+<6>CPU: Testing write buffer coherency: ok
+<4>CPU1: Booted secondary processor
+<6>Brought up 2 CPUs
+<6>SMP: Total of 2 processors activated (2123.36 BogoMIPS).
+<6>NET: Registered protocol family 16
+<6>L310 cache controller enabled
+<6>l2x0: 8 ways, CACHE_ID 0x410000c4, AUX_CTRL 0x40440000
+<6>chip revision 420
+<4>bio: create slab <bio-0> at 0
+<5>SCSI subsystem initialized
+<6>usbcore: registered new interface driver usbfs
+<6>usbcore: registered new interface driver hub
+<6>usbcore: registered new device driver usb
+<6>Advanced Linux Sound Architecture Driver Version 1.0.23.
+<6>Bluetooth: Core ver 2.15
+<6>NET: Registered protocol family 31
+<6>Bluetooth: HCI device and connection manager initialized
+<6>Bluetooth: HCI socket layer initialized
+<6>Switching to clocksource sti
+<6>NET: Registered protocol family 2
+<6>IP route cache hash table entries: 4096 (order: 2, 16384 bytes)
+<6>TCP established hash table entries: 16384 (order: 5, 131072 bytes)
+<6>TCP bind hash table entries: 16384 (order: 5, 196608 bytes)
+<6>TCP: Hash tables configured (established 16384 bind 16384)
+<6>TCP reno registered
+<6>UDP hash table entries: 256 (order: 1, 8192 bytes)
+<6>UDP-Lite hash table entries: 256 (order: 1, 8192 bytes)
+<6>NET: Registered protocol family 1
+<6>RPC: Registered udp transport module.
+<6>RPC: Registered tcp transport module.
+<6>RPC: Registered tcp NFSv4.1 backchannel transport module.
+<6>Power Management for EMXX.
+<6>spi: registered device spi [spi]
+<4>---AXP192_init
+<4>setup proc control interface
+<6>Starting pmu...
+<6>ashmem: initialized
+<7>yaffs built Feb  7 2012 01:05:43 Installing. 
+<6>msgmni has been set to 751
+<6>alg: No test for stdrng (krng)
+<6>io scheduler noop registered
+<6>io scheduler deadline registered (default)
+<6>io scheduler cfq registered
+<6>Serial: 8250/16550 driver, 2 ports, IRQ sharing disabled
+<6>serial8250.0: ttyS0 at MMIO 0xe1020000 (irq = 40) is a TI16750
+<6>console [ttyS0] enabled
+<6>serial8250.0: ttyS1 at MMIO 0xe1030000 (irq = 41) is a TI16750
+<4>board_version:0
+<6>emxx_fb: registered device fb
+<6>loop: module loaded
+<6>PPP generic driver version 2.4.2
+<6>PPP Deflate Compression module registered
+<6>PPP BSD Compression module registered
+<6>PPP MPPE Compression module registered
+<6>NET: Registered protocol family 24
+<6>smsc911x: Driver version 2008-10-21.
+<6>Linux video capture interface: v2.00
+<6>emxx_v4l2: registered device video0 [v4l2]
+<6>emxx_camera : "EMXX: GC030X Camera" registered device video1 [V4L2]
+<6>i2c /dev entries driver
+<4>---AXP192_Probe
+<6>axp192 detected(user data:0x49080f64).
+<4>setup proc control interface
+<6>Battery probe...
+<4>VBUS OTG 
+<4>
+<4>call axp192_setbattry_callback
+<4>EMXX_AXP192:entered function axp192_setbattry_callback
+<6>ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
+<6>emxx-ehci-driver emxx-ehci-driver: EMXX EHCI
+<6>emxx-ehci-driver emxx-ehci-driver: new USB bus registered, assigned bus number 1
+<6>emxx-ehci-driver emxx-ehci-driver: irq 115, io mem 0xe2701000
+<6>emxx-ehci-driver emxx-ehci-driver: USB 2.0 started, EHCI 1.00
+<6>hub 1-0:1.0: USB hub found
+<6>hub 1-0:1.0: 1 port detected
+<6>ohci_hcd: USB 1.1 'Open' Host Controller (OHCI) Driver
+<6>emxx-ohci-driver emxx-ohci-driver: EMXX OHCI
+<6>emxx-ohci-driver emxx-ohci-driver: new USB bus registered, assigned bus number 2
+<6>emxx-ohci-driver emxx-ohci-driver: irq 115, io mem 0xe2700000
+<6>hub 2-0:1.0: USB hub found
+<6>hub 2-0:1.0: 1 port detected
+<6>Initializing USB Mass Storage driver...
+<6>usbcore: registered new interface driver usb-storage
+<6>USB Mass Storage support registered.
+<6>usbcore: registered new interface driver usbserial
+<6>usbserial: USB Serial Driver core
+<6>USB Serial support registered for GSM modem (1-port)
+<6>usbcore: registered new interface driver option
+<6>option: v0.7.2:USB Driver for GSM modems
+<6>udc: version Feb  7 2012
+<6>android init
+<6>android_probe pdata: c04dfd34
+<6>android_bind
+<7>android_bind_config
+<6>android_usb gadget: android_usb ready
+<6>udc:  ----- VBUS OFF
+<6>f_adb init
+<6>android_register_function adb
+<6>f_mass_storage init
+<6>fsg_probe pdev: c04df8a0, pdata: c04dfd24
+<6>android_register_function usb_mass_storage
+<6>android_usb gadget: Mass Storage Function, version: 2009/09/11
+<6>android_usb gadget: Number of LUNs=2
+<6> lun0: LUN: removable file: (no medium)
+<6> lun1: LUN: removable file: (no medium)
+<6>adb_bind_config
+<4>EMXX GPIOKEY gpio_keys_probe;178 gpio_keys_probe
+<6>input: gpio-keys as /devices/platform/gpio-keys/input/input0
+<4>ekt2201_init
+<4>ekt2201_i2c_ts_probe
+<6>input: ekt2201_tk as /devices/i2c-0/0-0010/input/input1
+<3>ekt2201:i2c_add_driver 0 
+<3>ha2605 0-0062: Ha2605 touch key init failed: -5
+<6>input: ha2605 as /devices/virtual/input/input2
+<4>hw version 0
+<6>Bosch Sensortec Device detected!
+<6>BMA220 registered I2C driver!
+<6>input: bma220 as /devices/virtual/input/input3
+<6>rtc-pcf8563 0-0051: chip found, driver version 0.4.3
+<6>using rtc device, rtc-pcf8563, for alarms
+<6>rtc-pcf8563 0-0051: rtc core: registered rtc-pcf8563 as rtc0
+<6>Starting wdt.
+<6>device-mapper: uevent: version 1.0.3
+<6>device-mapper: ioctl: 4.17.0-ioctl (2010-03-05) initialised: dm-devel@redhat.com
+<6>Bluetooth: HCI UART driver ver 2.2
+<6>Bluetooth: HCI H4 protocol initialized
+<6>usbcore: registered new interface driver usbhid
+<6>usbhid: USB HID core driver
+<6>logger: created 64K log 'log_main'
+<6>logger: created 256K log 'log_events'
+<6>logger: created 64K log 'log_radio'
+<6>logger: created 64K log 'log_system'
+<6>emxx_nts: registered device ntsc
+<6>mmc0: new high speed MMC card at address 0001
+<6>Starting sound codec.
+<6>ALSA device list:
+<6>  #0: sound codec (emxx mixer)
+<6>TCP cubic registered
+<6>NET: Registered protocol family 17
+<6>Bluetooth: L2CAP ver 2.14
+<6>Bluetooth: L2CAP socket layer initialized
+<6>Bluetooth: SCO (Voice Link) ver 0.6
+<6>Bluetooth: SCO socket layer initialized
+<6>Bluetooth: RFCOMM TTY layer initialized
+<6>Bluetooth: RFCOMM socket layer initialized
+<6>Bluetooth: RFCOMM ver 1.11
+<6>Bluetooth: BNEP (Ethernet Emulation) ver 1.3
+<6>Bluetooth: HIDP (Human Interface Emulation) ver 1.2
+<6>lib80211: common routines for IEEE802.11 drivers
+<7>lib80211_crypt: registered algorithm 'NULL'
+<7>lib80211_crypt: registered algorithm 'WEP'
+<7>lib80211_crypt: registered algorithm 'CCMP'
+<7>lib80211_crypt: registered algorithm 'TKIP'
+<7>Registered led device: lcd-backlight
+<7>Registered led device: led1
+<7>Registered led device: led2
+<7>Registered led device: led3
+<6>VFP support v0.3: implementor 41 architecture 3 part 30 variant 9 rev 1
+<4>hw version 0
+<6>mmcblk0: mmc0:0001 SEM04G 3.68 GiB 
+<4>goodix_ts_init function called
+<6>input: Goodix TouchScreen of GT80X as /devices/virtual/input/input4
+<6> mmcblk0: p1 p2 p3 p4 < p5 p6 p7 p8 >
+<4>
+<4>
+<6>goodix_ts 0-0055:  Guitar Version: GT801_1R07_2011081501_Goodix_Tech      
+<4>goodix_ts_driver is ok
+<6>rtc-pcf8563 0-0051: setting system clock to 2013-07-05 11:25:31 UTC (1373023531)
+<6>EXT3-fs: barriers not enabled
+<4>
+<4>===== HDMI inserted =====
+<6>usb 2-1: new low speed USB device using emxx-ohci-driver and address 2
+<6>kjournald starting.  Commit interval 5 seconds
+<4>EXT3-fs (mmcblk0p5): warning: maximal mount count reached, running e2fsck is recommended
+<6>EXT3-fs (mmcblk0p5): using internal journal
+<6>EXT3-fs (mmcblk0p5): recovery complete
+<6>EXT3-fs (mmcblk0p5): mounted filesystem with writeback data mode
+<4>VFS: Mounted root (ext3 filesystem) on device 179:5.
+<6>Freeing init memory: 500K
+<4>mmc1: host does not support reading read-only switch. assuming write-enable.
+<6>mmc1: new high speed SDHC card at address aaaa
+<6>mmcblk1: mmc1:aaaa SU04G 3.69 GiB 
+<6> mmcblk1: p1
+<6>input: Logitech USB-PS/2 Optical Mouse as /devices/platform/emxx-ohci-driver/usb2/2-1/2-1:1.0/input/input5
+<6>generic-usb 0003:046D:C03D.0001: input: USB HID v1.10 Mouse [Logitech USB-PS/2 Optical Mouse] on usb-emxx_ohci-1/input0
+<6>EXT3-fs: barriers not enabled
+<4>EXT3-fs (mmcblk0p6): warning: maximal mount count reached, running e2fsck is recommended
+<6>kjournald starting.  Commit interval 5 seconds
+<6>EXT3-fs (mmcblk0p6): using internal journal
+<6>EXT3-fs (mmcblk0p6): recovery complete
+<6>EXT3-fs (mmcblk0p6): mounted filesystem with writeback data mode
+<6>EXT3-fs: barriers not enabled
+<4>EXT3-fs (mmcblk0p7): warning: maximal mount count reached, running e2fsck is recommended
+<6>kjournald starting.  Commit interval 5 seconds
+<6>EXT3-fs (mmcblk0p7): using internal journal
+<7>ext3_orphan_cleanup: deleting unreferenced inode 45795
+<6>EXT3-fs (mmcblk0p7): 1 orphan inode deleted
+<6>EXT3-fs (mmcblk0p7): recovery complete
+<6>EXT3-fs (mmcblk0p7): mounted filesystem with writeback data mode
+<6>enabling adb
+<6>adb_open
+<6>warning: `rild' uses 32-bit capabilities (legacy support in use)
+<4>codec_power_on
+<4>HDMI output mode, lcd backlight off.
+<4>--SDIO1 connected
+<4>================WLAN power on=========================
+<4>
+<4>Dongle Host Driver, version 4.218.248.15
+<4>Compiled in /home/hgang/workspace/4_218_248_15_softap_2.6.35/open-src/src/dhd/linux/../.. on Nov  2 2011 at 11:16:32
+<6>request_suspend_state: wakeup (3->0) at 20049765864 (2013-07-05 11:25:49.461006098 UTC)
+<4>mmc2: queuing unknown CIS tuple 0x80 (50 bytes)
+<4>mmc2: queuing unknown CIS tuple 0x80 (7 bytes)
+<4>mmc2: queuing unknown CIS tuple 0x80 (4 bytes)
+<4>mmc2: queuing unknown CIS tuple 0x02 (1 bytes)
+<6>mmc2: new SDIO card at address 0001
+<4>F1 signature read @0x18000000=0x9934329
+<4>DHD: dongle ram size is set to 294912(orig 294912)
+<4>dhdsdio_write_vars: Download, Upload and compare of NVRAM succeeded.
+<4>Firmware version = wl0: Nov 17 2010 20:08:39 version 4.218.248.15
+<4>eth0: Broadcom Dongle Host Driver mac=40:2c:f4:58:66:4b
+<4>Exited wl_control_wl_start 
+<4>luck msg dhd open 
+<4>EMXX GPIOKEY gpio_check_button;125 report Key down
+<4>VBUS OTG 
+<4>EMXX GPIOKEY gpio_check_button;149 report Key up
+<6>request_suspend_state: sleep (0->3) at 25379735375 (2013-07-05 11:25:54.790975609 UTC)
+<4>dhd_get_dtim_skip bcn_li_dtim=3 DTIM=2 Listen=20
+<3>FAT: invalid media value (0x64)
+<6>VFS: Can't find a valid FAT filesystem on dev dm-1.
+<4>Unknown PRIVATE command, ignored
+<4>Unknown PRIVATE command, ignored
+<4>Unknown PRIVATE command, ignored
+<4>Unknown PRIVATE command, ignored
+<4>Unknown PRIVATE command, ignored
+<4>Unknown PRIVATE command, ignored
+<4>Unknown PRIVATE command, ignored
+<6>usb 2-1: USB disconnect, address 2
+<6>udc:  ----- VBUS OFF
+<6>udc:  ----- VBUS OFF
+<6>udc:  ----- VBUS ON
+<6>udc:  ----- VBUS OFF
+<6>udc:  ----- VBUS OFF
+<4>Unknown PRIVATE command, ignored
+<4>
+<4>===== HDMI removed =====
+<4>
+<4>
+<6>PM: Syncing filesystems ... done.
+<4>Freezing user space processes ... (elapsed 0.01 seconds) done.
+<4>Freezing remaining freezable tasks ... (elapsed 0.01 seconds) done.
+<4>Suspending console(s) (use no_console_suspend to debug)
+<4>EMXX SDIO: mmc2 not suspend.
+<4>EMXX SDIO: mmc0 suspend.
+<4>EMXX GPIOKEY gpio_keys_suspend;329 GPIO key suspend
+<6>PM: suspend of devices complete after 6.920 msecs
+<6>PM: late suspend of devices complete after 0.274 msecs
+<4>Disabling non-boot CPUs ...
+<5>CPU1: shutdown
+<4>------------[ cut here ]------------
+<4>WARNING: at fs/sysfs/group.c:138 sysfs_remove_group+0x4c/0x110()
+<4>sysfs group c04fa7a4 not found for kobject 'cpufreq'
+<4>Modules linked in: dhd bc_example emxxlfb pvrsrvkm em_ave inter_dsp
+<4>[<c008c77c>] (unwind_backtrace+0x0/0xf0) from [<c00b1a0c>] (warn_slowpath_common+0x4c/0x64)
+<4>[<c00b1a0c>] (warn_slowpath_common+0x4c/0x64) from [<c00b1aa4>] (warn_slowpath_fmt+0x2c/0x3c)
+<4>[<c00b1aa4>] (warn_slowpath_fmt+0x2c/0x3c) from [<c0159d70>] (sysfs_remove_group+0x4c/0x110)
+<4>[<c0159d70>] (sysfs_remove_group+0x4c/0x110) from [<c02c7b10>] (cpufreq_stats_free_table+0x3c/0x88)
+<4>[<c02c7b10>] (cpufreq_stats_free_table+0x3c/0x88) from [<c03a9738>] (cpufreq_stat_cpu_callback+0x40/0x48)
+<4>[<c03a9738>] (cpufreq_stat_cpu_callback+0x40/0x48) from [<c00cc5d8>] (notifier_call_chain+0x2c/0x70)
+<4>[<c00cc5d8>] (notifier_call_chain+0x2c/0x70) from [<c00b33cc>] (__cpu_notify+0x24/0x3c)
+<4>[<c00b33cc>] (__cpu_notify+0x24/0x3c) from [<c00b33f4>] (cpu_notify_nofail+0x10/0x28)
+<4>[<c00b33f4>] (cpu_notify_nofail+0x10/0x28) from [<c03a3db8>] (_cpu_down+0x17c/0x24c)
+<4>[<c03a3db8>] (_cpu_down+0x17c/0x24c) from [<c00b3514>] (disable_nonboot_cpus+0x50/0x108)
+<4>[<c00b3514>] (disable_nonboot_cpus+0x50/0x108) from [<c00deb98>] (suspend_devices_and_enter+0xc4/0x1b0)
+<4>[<c00deb98>] (suspend_devices_and_enter+0xc4/0x1b0) from [<c00ded2c>] (enter_state+0xa8/0xd4)
+<4>[<c00ded2c>] (enter_state+0xa8/0xd4) from [<c00e01f0>] (suspend+0x60/0x124)
+<4>[<c00e01f0>] (suspend+0x60/0x124) from [<c00c387c>] (worker_thread+0x15c/0x1e8)
+<4>[<c00c387c>] (worker_thread+0x15c/0x1e8) from [<c00c73c0>] (kthread+0x78/0x80)
+<4>[<c00c73c0>] (kthread+0x78/0x80) from [<c008731c>] (kernel_thread_exit+0x0/0x8)
+<4>---[ end trace 375ef21aa038c68a ]---
+<4>Enabling non-boot CPUs ...
+<4>CPU1: Booted secondary processor
+<4>CPU1 is up
+<6>PM: early resume of devices complete after 0.121 msecs
+<6>udc:  ----- VBUS ON
+<4>EMXX GPIOKEY gpio_keys_resume;364 report Key down
+<6>wakeup wake lock: event0-114
+<4>EMXX GPIOKEY gpio_keys_resume;367 gpio_keys dn   code[116],type=0
+<4>EMXX GPIOKEY gpio_keys_resume;370 report Key up
+<4>EMXX GPIOKEY gpio_keys_resume;376 GPIO key resume
+<4>VBUS device 
+<4>usb usb2: root hub lost power or was reset
+<4>EMXX SDIO: mmc0 resume.
+<4>SDIO_STATE value: 33488897
+<4>EMXX SDIO: mmc2 not resume.
+<6>PM: resume of devices complete after 333.841 msecs
+<4>Restarting tasks ... done.
+<6>suspend: exit suspend, ret = 0 (2013-07-05 11:26:53.749847562 UTC)
+<6>request_suspend_state: wakeup (3->0) at 33881259762 (2013-07-05 11:26:53.780091461 UTC)
+<6>android_usb gadget: high speed config #1: android
+<4>
+<4>
+<4>
+<4>
+<4>
+<4>

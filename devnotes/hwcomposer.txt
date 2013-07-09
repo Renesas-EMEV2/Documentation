@@ -1,0 +1,70 @@
+
+ Failure in HW Composer
+
+ -----------------------
+
+D/libEGL  (  249): loaded /vendor/lib/egl/libGLESv1_CM_POWERVR_SGX530_120.so
+D/libEGL  (  249): loaded /vendor/lib/egl/libGLESv2_POWERVR_SGX530_120.so
+I/HAL     (  249): hw_get_module_by_class - name 'gralloc'
+I/HAL     (  249): hw_get_module_by_class - class_id 'gralloc',  path '/vendor/lib/hw/gralloc.emxx.so'
+V/HAL     (  249): loaded HAL id=gralloc path=/vendor/lib/hw/gralloc.emxx.so hmi=0x0 handle=0x40018310
+I/SurfaceFlinger(  249): EGL informations:
+I/SurfaceFlinger(  249): # of configs : 22
+I/SurfaceFlinger(  249): vendor    : Android
+I/SurfaceFlinger(  249): version   : 1.4 Android META-EGL
+I/SurfaceFlinger(  249): extensions: EGL_KHR_image EGL_KHR_image_base EGL_KHR_gl_texture_2D_image EGL_KHR_gl_texture_cubemap_image EGL_KHR_gl_renderbuffer_image EGL_KHR_fence_sync EGL_ANDROID_image_native_buffer 
+I/SurfaceFlinger(  249): Client API: OpenGL_ES
+I/SurfaceFlinger(  249): EGLSurface: 8-8-8-8, config=0x2
+I/SurfaceFlinger(  249): OpenGL informations:
+I/SurfaceFlinger(  249): vendor    : Imagination Technologies
+I/SurfaceFlinger(  249): renderer  : PowerVR SGX 530
+I/SurfaceFlinger(  249): version   : OpenGL ES-CM 1.1
+I/SurfaceFlinger(  249): extensions: GL_EXT_debug_marker GL_OES_byte_coordinates GL_OES_fixed_point GL_OES_single_precision GL_OES_matrix_get GL_OES_read_format GL_OES_compressed_paletted_texture GL_OES_point_sprite GL_OES_point_size_array GL_OES_matrix_palette GL_OES_draw_texture GL_OES_query_matrix GL_OES_texture_env_crossbar GL_OES_texture_mirrored_repeat GL_OES_texture_cube_map GL_OES_blend_subtract GL_OES_blend_func_separate GL_OES_blend_equation_separate GL_OES_stencil_wrap GL_OES_extended_matrix_palette GL_OES_framebuffer_object GL_OES_rgb8_rgba8 GL_OES_depth24 GL_OES_stencil8 GL_OES_compressed_ETC1_RGB8_texture GL_OES_mapbuffer GL_OES_EGL_image GL_OES_EGL_image_external GL_EXT_multi_draw_arrays GL_OES_required_internalformat GL_IMG_read_format GL_IMG_texture_compression_pvrtc GL_IMG_texture_format_BGRA8888 GL_EXT_texture_format_BGRA8888 GL_OES_egl_sync GL_IMG_vertex_array_object
+I/SurfaceFlinger(  249): GL_MAX_TEXTURE_SIZE = 2048
+I/SurfaceFlinger(  249): GL_MAX_VIEWPORT_DIMS = 2048 x 2048
+I/SurfaceFlinger(  249): flags = 00000000
+I/HAL     (  249): hw_get_module_by_class - name 'hwcomposer'
+I/HAL     (  249): hw_get_module_by_class - class_id 'hwcomposer',  path '/vendor/lib/hw/hwcomposer.emxx.so'
+E/HAL     (  249): load: module=/vendor/lib/hw/hwcomposer.emxx.so
+E/HAL     (  249): Cannot load library: reloc_library[1306]:   249 cannot locate 'SGX_DBG'...
+W/SurfaceFlinger(  249): hwcomposer module not found
+I/SurfaceFlinger(  249): EventThread ready to run.
+E/Trace   (  249): error opening trace file: No such file or directory (2)
+D/libEGL  (  256): loaded /vendor/lib/egl/libEGL_POWERVR_SGX530_120.so
+
+ - - - - 
+
+Recompiled SGX .ko modules, as per procedure in
+
+ /media/u02/RenesasEV2/SGX_2.3/eurasia_km/compile.txt
+
+ -> eurasia_km/eurasiacon/binary2_emev_android_release/target/kbuild/pvrsrvkm.ko
+ -> eurasia_km/eurasiacon/binary2_emev_android_release/target/kbuild/emxxlfb.ko
+
+and replaced in the corresponding device/renesas/emev/sgx dir for the JB AOSP build
+
+Boot fails!
+
+I also made a few trials, pushing binaries from um_binary.tar.gz as well, but the same error always appear:
+
+E/IMGSRV  (  268): pvr_bridge_u.c:263: PVRSRVBridgeCall: Failed to access device.  Function ID:3223086860 (Bad address).
+E/IMGSRV  (  268): pvr_bridge_u.c:158: OpenServices: PVRSRVBridgeCall failed.
+E/IMGSRV  (  268): bridged_pvr_glue.c:366: PVRSRVConnect: Unable to open connection.
+
+and boot loops over the same errors forever.
+
+Looks like only the preubilt pvrsrvkm.ko and emxxlfb.ko are compatible with the SGX binaries.
+
+Though I remember (but I can't be sure anymore now...) that the .ko recompiled by me used to work...
+
+  - - - 
+
+Tried with this hwcomposer lib:
+
+ device/renesas/emev/sgx/out/system/vendor/lib/hw/hwcomposer.emxx.so.orig
+
+but it's crashing as well.
+
+Restored orginal ones.
+
+
