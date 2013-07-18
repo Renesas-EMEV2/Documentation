@@ -67,4 +67,227 @@ but it's crashing as well.
 
 Restored orginal ones.
 
+ - - - - 
+
+ 16 Jul 2013
+
+Testing new compilation of both UM and KM modules:
+
+ media/u02/RenesasEV2/SGX_1.8/SGX1.8_EMEV_JB
+
+SGX1.8_EMEV_JB.tar.gz copied over to https://www.dropbox.com/sh/qoqfi5y5mvx7fg7/e2cgKmzJrE
+
+(includes newly built libs)
+
+Modules built with 
+
+ ./compile_um.sh
+ ./compile_km.sh
+
+In order to fix a few errrors during compilation, I had to change a bit the original package (which was tested on ICS):
+
+- used a locally compiled copy of gawk tool (v. 1.4)
+- used Android NDK toolchain gcc version 4.6 (in place of ICS prebuilt, 4.4.x)
+- created a link for build/core/armelf.x, as in JB this file is in a different place
+- changed #include in a few files, from <private/ui/android_natives_priv.h> to <ui/ANativeObjectBase.h>:
+
+ eurasia/eurasiacon/wsegl/android/android_ws.c:/* JB has changed this
+ eurasia/eurasiacon/unittests/android/testwrap/testwrap.c:/* JB has changed this
+ eurasia/eurasiacon/unittests/android/common/jni/testwrap.c:/* JB has changed this
+ eurasia/eurasiacon/unittests/android/hal_blit_test/blit.c:/* JB has changed this
+ eurasia/eurasiacon/unittests/android/framebuffer_test/framebuffer.c:/* JB has changed this
+
+I pushed new libs to device using 
+
+ ./push.sh
+
+Compilation completes correctly, but it fail on bootup on device:
+
+I/SurfaceFlinger(  409): SurfaceFlinger is starting
+I/SurfaceFlinger(  409): SurfaceFlinger's main thread ready to run. Initializing graphics H/W...
+I/HAL     (  409): hw_get_module_by_class - name 'power'
+I/HAL     (  409): hw_get_module_by_class - class_id 'power',  path '/system/lib/hw/power.default.so'
+V/HAL     (  409): loaded HAL id=power path=/system/lib/hw/power.default.so hmi=0x0 handle=0x400181ec
+I/HAL     (  409): hw_get_module_by_class - name 'gralloc'
+I/HAL     (  409): hw_get_module_by_class - class_id 'gralloc',  path '/vendor/lib/hw/gralloc.emxx.so'
+V/HAL     (  409): loaded HAL id=gralloc path=/vendor/lib/hw/gralloc.emxx.so hmi=0x400a6a4c handle=0x40018310
+E/FramebufferNativeWindow(  409): couldn't open framebuffer HAL (Not a typewriter)
+E/FramebufferNativeWindow(  409): couldn't open gralloc HAL (Not a typewriter)
+E/SurfaceFlinger(  409): Display subsystem failed to initialize. check logs. exiting...
+
+ - - - -
+
+Any executable in /vendir/bin crashes with segmenataiton fault
+
+130|root@android:/ # /system/vendor/bin/pvrsrvctl --start                      
+[1] + Stopped (signal)     /system/vendor/bin/pvrsrvctl --start
+
+I'm afraid the used NDK toolchain is not correct ...
+
+ - - - -
+
+If I use the ICS toolchain:
+
+export CROSS_COMPILE=/media/u03/RenesasEV2/livall-ics/prebuilt/linux-x86/toolchain/arm-linux-androideabi-4.4.x/bin/arm-linux-androideabi-
+
+I get this error on link:
+
+  LD       eurasiacon/binary2_emev_android_release/target/libsrv_um.so
+/media/u03/RenesasEV2/livall-ics/prebuilt/linux-x86/toolchain/arm-linux-androideabi-4.4.x/bin/../lib/gcc/arm-linux-androideabi/4.4.3/../../../../arm-linux-androideabi/bin/ld: error: /media/u02/RenesasEV2/jb/out/target/product/emev/obj/lib/libc.so: unknown mandatory EABI object attribute 44
+
+which is explained here
+
+ http://lists.linaro.org/pipermail/linaro-toolchain/2011-August/001449.html as
+
+The list of EABI attributes is in
+bintuils/include/elf/arm.h.  Attribute 44 is 'DIV use', which is set
+if the idiv/sdiv instructions are used.  These exist in the Cortex-M,
+Cortex-R, and the Cortex-A15 but not in the A8 or A9.  This attribute
+is set by the assembler automatically based on the architecture being
+compiled for.
+
+You can check the attributes set on a function using
+arm-linux-gnueabi-readelf -A object-file-name.o.
+
+I don't know which version of binutils you are using.  Support was
+added to the assembler in May 2010 and updated for ARM mode in
+September 2010.
+ 
+ - - - -
+
+If I use the NDK 4.4.3 toolchain:
+
+export CROSS_COMPILE=$ANDROID_NDK/toolchains/arm-linux-androideabi-4.4.3/prebuilt/linux-x86/bin
+
+The same "Unknown EABI object attribute 44" messages appear, but compilation is carried on...
+
+After pushing new build, on boot I still get:
+
+V/HAL     ( 4256): loaded HAL id=gralloc path=/vendor/lib/hw/gralloc.emxx.so hmi=0x400a6a4c handle=0x40018310
+E/FramebufferNativeWindow( 4256): couldn't open framebuffer HAL (Not a typewriter)
+E/FramebufferNativeWindow( 4256): couldn't open gralloc HAL (Not a typewriter)
+
+and the core dump:
+
+root@android:/vendor/bin # ./pvrsrvctl                                         
+Segmentation fault 
+
+Note as the core happens even before "usage" is shown. So it is not a code, but a compile issue.
+
+ - - - - 
+
+Recompiling pvrsrvctl.c, I get the warning:
+
+../config/user-defs.mk:98: $(HOST_CC) generates 64-bit code, which is not supported. Trying to work around.
+  CC       services4/srvinit/env/linux/pvrsrvctl.c
+services4/srvinit/env/linux/pvrsrvctl.c: In function 'main':
+services4/srvinit/env/linux/pvrsrvctl.c:161: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+  LD       eurasiacon/binary2_emev_android_release/target/pvrsrvctl
+/media/u01/android-ndk-r8b/toolchains/arm-linux-androideabi-4.4.3/prebuilt/linux-x86/bin/../lib/gcc/arm-linux-androideabi/4.4.3/../../../../arm-linux-androideabi/bin/ld: Warning: /media/u02/RenesasEV2/jb/out/target/product/emev/obj/lib/crtbegin_dynamic.o: Unknown EABI object attribute 44
+/media/u01/android-ndk-r8b/toolchains/arm-linux-androideabi-4.4.3/prebuilt/linux-x86/bin/../lib/gcc/arm-linux-androideabi/4.4.3/../../../../arm-linux-androideabi/bin/ld: Warning: /media/u02/RenesasEV2/jb/out/target/product/emev/obj/lib/crtend_android.o: Unknown EABI object attribute 44
+
+Comparing the ELF attributes of the objects being linked:
+
+arm-none-linux-gnueabi-readelf -A ./eurasia/eurasiacon/binary2_emev_android_release/target/intermediates/pvrsrvctl/pvrsrvctl.o
+Attribute Section: aeabi
+File Attributes
+  Tag_CPU_name: "7-A"
+  Tag_CPU_arch: v7
+  Tag_CPU_arch_profile: Application
+  Tag_ARM_ISA_use: Yes
+  Tag_ABI_PCS_wchar_t: 4
+  Tag_ABI_FP_denormal: Needed
+  Tag_ABI_FP_exceptions: Needed
+  Tag_ABI_FP_number_model: IEEE 754
+  Tag_ABI_align_needed: 8-byte
+  Tag_ABI_align_preserved: 8-byte, except leaf SP
+  Tag_ABI_enum_size: int
+  Tag_ABI_optimization_goals: Aggressive Size
+
+arm-none-linux-gnueabi-readelf -A /media/u02/RenesasEV2/jb/out/target/product/emev/obj/lib/crtbegin_dynamic.o
+Attribute Section: aeabi
+File Attributes
+  Tag_CPU_name: "5TE"
+  Tag_CPU_arch: v5TE
+  Tag_ARM_ISA_use: Yes
+  Tag_THUMB_ISA_use: Thumb-1
+  Tag_FP_arch: VFPv2
+  Tag_DIV_use: Not allowed
+
+Looks like the JB (AOSP build) object is of CPU type "v5", while I expected it all to be a "v7", as defined in
+
+ grep v7 *.mk
+
+BoardConfig.mk:TARGET_CPU_ABI := armeabi-v7a
+BoardConfig.mk:TARGET_ARCH_VARIANT = armv7-a-neon
+
+Actually, this file is found in a "prebuilt" directory under JB AOSP:
+
+ prebuilts/ndk/android-ndk-r7/platforms/android-4/arch-arm/usr/lib/crtbegin_dynamic.o
+
+and also in ICS AOSP it reports Tag_CPU_arch: v5TE.
+
+Not sure if that's the actual reason of the pvrsrvctl crash....
+
+Question posted on
+ 
+ https://groups.google.com/forum/#!forum/android-porting
+
+ - - - - - 
+
+Using now the JB AOSP toolchain
+
+ export CROSS_COMPILE=$ANDROID_DIR/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/bin/arm-eabi-
+
+I also get the "Unknown EABI object attribute 44" warnings. Build completes, but I'm still getting the core dump:
+
+root@android:/vendor/bin # 
+[1] + Segmentation fault   ./pvrsrvctl 
+
+ - - - - -
+
+Switching to JB AOSP 4.4.3 toolchain I also had to replace a soft link that I created
+
+cd $ANDROID_ROOT/build/core
+rm armelf.x
+ln -s $ANDROID_ROOT/prebuilt/linux-x86/toolchain/arm-eabi-4.4.3/arm-eabi/lib/ldscripts/armelf.x armelf.x
+
+but that din't make a big difference in results.
+
+Using the armelf.x from ICS:
+
+ln -s /media/u03/RenesasEV2/livall-ics/build/core/armelf.x armelf.x
+
+compilation halts when geting the "Unknown EABI object attribute 44" warning
+
+ - - - - -
+
+Comparing "readelf" on pvrsrvctl, these entries
+
+  Tag_ABI_HardFP_use: SP and DP
+  Tag_ABI_optimization_goals: Aggressive Speed
+  Tag_unknown_44: 1 (0x1)
+
+are found in the newly built version (not working) while I can't find them in the working version (the one now stored on github).
+
+ - - - - -
+
+ 17 Jul 2013
+
+New approach, to rebuild SGX KM and UM
+
+Taking the original package:
+
+ /media/u02/RenesasEV2/SGX_1.8/SGX1.8_EMEV.tar.bz2
+
+1) expanded into SGX1.8_EMEV_ICS (SGX1.8_EMEV_ICS.tar.gz created, with new scripts)
+2) adapted source.sh to local env, setting an ICS one as the AOSP home (not JB!)
+3) recreated local code soft links (link.sh)
+4) compiled KM and UM (compile_km.sh; compile_um.sh) -> OK! 
+5) pushed onto device (push.sh)
+6) device (with JB onboard): reboot and runtime test OK (but the hwcomposer error is still there!)
+7) copied newly build modules to JB build dir (copy.sh)
+8) rebuild JB and flash -> OK
+
+Pushed KM source code on github (UM is under very strict NDA).
 
