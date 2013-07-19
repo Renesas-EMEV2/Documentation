@@ -1,0 +1,171 @@
+
+ 19 Jul 2013
+
+ Debugging video playback crash
+
+ - - - - -
+
+Configuration is defined in 
+
+ device/renesas/emev/media_codecs.xml
+ device/renesas/emev/media_profiles.xml
+
+OMX loading log:
+
+I/EV2OMXPlugin( 1164): ***OMFPlugin() libomf_manager.so dl open success !!!!!!!!
+I/EV2OMXPlugin( 1164): ***run OMFPlugin init: ret: 0x00000000
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1164): adding plugin component 'OMX.RENESAS.AUDIO.DECODER.AAC'
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1164): adding plugin component 'OMX.RENESAS.VIDEO.DECODER.H264'
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1164): adding plugin component 'OMX.RENESAS.VIDEO.DECODER.MPEG4'
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1164): adding plugin component 'OMX.RENESAS.VIDEO.DECODER.MPEG2'
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1164): adding plugin component 'OMX.RENESAS.VIDEO.DECODER.VC1'
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1164): adding plugin component 'OMX.RENESAS.IMAGE.DECODER.JPEG'
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1164): adding plugin component 'OMX.RENESAS.IMAGE.ENCODER.JPEG'
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1164): adding plugin component 'OMX.google.aac.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.aac.encoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.amrnb.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.amrnb.encoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.amrwb.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.amrwb.encoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.h264.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.h264.encoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.g711.alaw.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.g711.mlaw.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.h263.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.h263.encoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.mpeg4.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.mpeg4.encoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.mp3.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.vorbis.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.vpx.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.raw.decoder'
+I/OMXMaster( 1164): adding plugin component 'OMX.google.flac.encoder'
+...
+
+
+Successful video playback (e.g. "RAI Replay"):
+
+I/ChromiumHTTPDataSource( 1164): connect to http://creativemedia2.rai.it/podcastmhp_world/replaytv_world/raiuno_world/notte_world/1695227_800.mp4 @0
+I/qtaguid ( 1164): Tagging socket 34 with tag 3f500000000(1013) for uid 10063 failed errno=-2
+E/WVMExtractor( 1164): Failed to open libwvm.so
+I/AwesomePlayer( 1164): initVideoDecoder flags=0x0
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+I/OMXCodec( 1164): [OMX.RENESAS.VIDEO.DECODER.H264] AVC profile = 77 (Main), level = 31
+I/OMXCodec( 1164): [OMX.RENESAS.VIDEO.DECODER.H264] video dimensions are 700 x 394
+I/AwesomePlayer( 1164): initVideoDecoder - component: OMX.RENESAS.VIDEO.DECODER.H264
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+E/OMXCodec( 1164): [OMX.RENESAS.AUDIO.DECODER.AAC] setParameter('OMX_IndexParamAudioAac') failed (err = -1010)
+E/OMXCodec( 1164): [OMX.RENESAS.AUDIO.DECODER.AAC] setAACFormat() failed (err = -1010)
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- destroyComponentInstance !!!!!!!!
+D/MediaPlayer(  849): getMetadata
+I/SoftAAC2( 1164): Reconfiguring decoder: 48000 Hz, 2 channels
+I/AwesomePlayer( 1164): initRenderer_l - component: OMX.RENESAS.VIDEO.DECODER.H264
+I/AwesomePlayer( 1164): initRenderer_l - Local renderer
+
+Note as fallback software AAC audio decoder is used, as HW one fails, but playback doesn't crash.
+
+
+Error video playback (e.g. "RAI Live"):
+
+V/ChromiumHTTPDataSource( 1164): connect on behalf of uid 10063
+I/ChromiumHTTPDataSource( 1164): connect to http://httpstream2.rai.it/Italy/rai1.isml/QualityLevels(1256000)/Fragments(Video=57459400000000,format=m3u8-aapl).ts @0
+I/ESQueue ( 1164): found AAC codec config (48000 Hz, 2 channels)
+I/avc_utils( 1164): found AVC codec config (624 x 352, Main-profile level 3.1)
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+E/OMXNodeInstance( 1164): OMX_GetExtensionIndex failed
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+E/OMXNodeInstance( 1164): OMX_GetExtensionIndex failed
+F/ACodec  ( 1164): frameworks/av/media/libstagefright/ACodec.cpp:3104 CHECK_EQ( (status_t)OK,mCodec->initNativeWindow()) failed: 0 vs. -2147483648
+F/libc    ( 1164): Fatal signal 11 (SIGSEGV) at 0xdeadbaad (code=1), thread 1405 (NuPlayerDecoder)
+I/DEBUG   (   70): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+I/DEBUG   (   70): Build fingerprint: 'emxx/renesas_emev/emev:4.1.1/JRO03L/eng.ffxx68.20130710.064436:eng/test-keys'
+I/DEBUG   (   70): pid: 1164, tid: 1405, name: NuPlayerDecoder  >>> /system/bin/mediaserver <<<
+I/DEBUG   (   70): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr deadbaad
+I/DEBUG   (   70):     r0 00000027  r1 deadbaad  r2 400c0aec  r3 00000000
+I/DEBUG   (   70):     r4 00000000  r5 426d4964  r6 00000000  r7 2a031930
+I/DEBUG   (   70):     r8 2a0363e8  r9 426d4e80  sl 00000000  fp 00000001
+I/DEBUG   (   70):     ip 400f1ea0  sp 426d4960  lr 40092a11  pc 4008f0ae  cpsr 60000030
+...
+I/DEBUG   (   70): backtrace:
+I/DEBUG   (   70):     #00  pc 000180ae  /system/lib/libc.so
+I/DEBUG   (   70):     #01  pc 0000dbd4  /system/lib/libc.so (abort+4)
+I/DEBUG   (   70):     #02  pc 00003f45  /system/lib/libcutils.so (__android_log_assert+88)
+I/DEBUG   (   70):     #03  pc 00049f27  /system/lib/libstagefright.so (android::ACodec::LoadedState::onConfigureComponent(android::sp<android::AMessage> const&)+54)
+...
+
+Error is from Renesas OMX HW drivers:
+
+I/EV2OMXPlugin( 1164): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+E/OMXNodeInstance( 1164): OMX_GetExtensionIndex failed
+
+in one of the device/renesas/emev/omf/*.so (unfortunately, source code isn't avaialble for these).
+
+ - - - -
+
+The following error from frameworks/av/media/libstagefright/ACodec.cpp:3104 is about this fragment of code:
+
+    sp<RefBase> obj;
+    if (msg->findObject("native-window", &obj)
+            && strncmp("OMX.google.", mCodec->mComponentName.c_str(), 11)) {
+        sp<NativeWindowWrapper> nativeWindow(
+                static_cast<NativeWindowWrapper *>(obj.get()));
+        CHECK(nativeWindow != NULL);
+        mCodec->mNativeWindow = nativeWindow->getNativeWindow();
+
+        native_window_set_scaling_mode(
+                mCodec->mNativeWindow.get(),
+                NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW);
+    }
+    CHECK_EQ((status_t)OK, mCodec->initNativeWindow());
+
+
+Actually, in device/renesas/emev/media_codecs.xml, the software fallback for video/avc (in case HW failed, as in this case) was commented out.
+
+Enabling Google SW codecs fallbacks in media_codecs.xml:
+
+         <MediaCodec name="OMX.google.h264.decoder" type="video/avc" />
+
+I still get the same crash as above... (?)
+
+Enabling SW codecs ONLY, I still can't playback "RAI Live", because of a different error:
+
+...
+V/ChromiumHTTPDataSource(   74): connect on behalf of uid 10063
+I/ChromiumHTTPDataSource(   74): connect to http://httpstream2.rai.it/Italy/rai1.isml/QualityLevels(1256000)/Fragments(Video=57469000000000,format=m3u8-aapl).ts @0
+I/ESQueue (   74): found AAC codec config (48000 Hz, 2 channels)
+I/avc_utils(   74): found AVC codec config (624 x 352, Main-profile level 3.1)
+E/ACodec  (   74): Unable to instantiate a decoder for type 'audio/mp4a-latm'.
+E/NuPlayer(   74): Received error from audio decoder, aborting playback.
+E/ACodec  (   74): Unable to instantiate a decoder for type 'video/avc'.
+E/NuPlayer(   74): Received error from video decoder, aborting playback.
+E/NuPlayer(   74): video track encountered an error (-2147483648)
+E/MediaPlayer(  900): error (1, -2147483648)
+E/MediaPlayer(  900): Error (1,-2147483648)
+D/VideoView(  900): Error: 1,-2147483648
+...
+
+but I can't play anymore even the "RAI Replay" (for the same error).
+
+ - - - - -
+
+Going back to main HW error:
+
+ E/OMXNodeInstance( 1164): OMX_GetExtensionIndex failed
+
+We might understand what's the missing OMX "index" feature, enabling debug logging from:
+
+ frameworks/av/media/libstagefright/ACodec.cpp
+ frameworks/av/media/libstagefright/omx/OMXNodeInstance.cpp
+
+though there's little hope to fix the error, without a HW driver upgrade...
+
+
+
