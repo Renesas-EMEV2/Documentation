@@ -1,0 +1,36 @@
+
+ 15 Nov 2013
+ - - - - - -
+ 
+On a 2-DDR model (but I remember other people reporting simlar issue too).
+
+Firmware: JB "beta"
+
+While trying to activate WiFi, during IP assignment stage, Android reboots.
+
+Logcat reporting:
+
+D/WifiService( 1788): setWifiEnabled: true pid=2341, uid=1000
+D/WifiHW  ( 1788): Loading driver: /system/lib/modules/dhd.ko firmware_path=/system/etc/firmware/fw4329.bin nvram_path=/system/etc/firmware/4329_nvram.txt
+E/WifiStateMachine( 1788): Failed to reload STA firmware java.lang.IllegalStateException: command '23 softap fwreload eth0 STA' failed with '400 23 Softap operation failed (Cannot assign requested address)'
+D/CommandListener( 1661): Setting iface cfg
+D/CommandListener( 1661): Trying to bring down eth0
+I/wpa_supplicant( 2464): rfkill: Cannot open RFKILL control device
+I/wpa_supplicant( 2464): eth0: Trying to associate with 74:44:01:3b:a7:f0 (SSID='FFUMI-IT_Network' freq=2412 MHz)
+I/wpa_supplicant( 2464): eth0: Associated with 74:44:01:3b:a7:f0
+I/wpa_supplicant( 2464): eth0: WPA: Key negotiation completed with 74:44:01:3b:a7:f0 [PTK=CCMP GTK=TKIP]
+I/wpa_supplicant( 2464): eth0: CTRL-EVENT-CONNECTED - Connection to 74:44:01:3b:a7:f0 completed (auth) [id=0 id_str=]
+E/WifiStateMachine( 1788): Failed to set frequency band 0
+D/dalvikvm( 1788): GC_CONCURRENT freed 744K, 13% free 9265K/10631K, paused 4ms+10ms, total 119ms
+D/DhcpInfoInternal( 1788): makeLinkProperties with empty dns2!
+D/DhcpInfoInternal( 1788): makeLinkProperties with empty dns2!
+W/dalvikvm( 1788): threadid=46: thread exiting with uncaught exception (group=0x40a46300)
+E/AndroidRuntime( 1788): *** FATAL EXCEPTION IN SYSTEM PROCESS: WifiWatchdogStateMachine
+.
+
+No message from kernel.
+
+Seems like the WiFi driver is not loaded correctly by wpa_supplicant.
+
+Need to rebuild wpa_supplicant wiht additional logs...
+
