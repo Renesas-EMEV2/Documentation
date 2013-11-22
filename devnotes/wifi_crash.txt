@@ -32,5 +32,11 @@ No message from kernel.
 
 Seems like the WiFi driver is not loaded correctly by wpa_supplicant.
 
-Need to rebuild wpa_supplicant wiht additional logs...
+Need to rebuild wpa_supplicant with additional logs...
+
+------------
+
+Removing the "Avoid Poor Connections" options removes the crash as well.
+
+Need to remove from Android build by default!
 
