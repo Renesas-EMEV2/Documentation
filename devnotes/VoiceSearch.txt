@@ -1,0 +1,110 @@
+
+ 21 Nov 2013
+
+when trying Google Voice Search (OOB app), getting error:
+
+ "Unfortunately, Voice Search has stopped"
+
+In logcat:
+
+I/ActivityManager(  260): START {act=android.speech.action.RECOGNIZE_SPEECH cmp=com.google.android.voicesearch/.IntentApiActivity u=0} from pid 1292
+W/IMGSRV  (  248): sgxrender_targets.c:497: PB Watermark Info - Alloc: 0x1b , Free: 0x5c2
+I/ActivityManager(  260): Start proc com.google.android.voicesearch for activity com.google.android.voicesearch/.IntentApiActivity: pid=1376 uid=10014 gids={3003, 1015, 1028}
+I/dalvikvm( 1376): Turning on JNI app bug workarounds for target SDK version 8...
+E/Trace   ( 1376): error opening trace file: No such file or directory (2)
+I/ActivityThread( 1376): Pub com.google.android.voicesearch: com.google.android.voicesearch.AudioProvider
+E/WVMExtractor(   74): Failed to open libwvm.so
+E/WVMExtractor(   74): Failed to open libwvm.so
+E/WVMExtractor(   74): Failed to open libwvm.so
+E/WVMExtractor(   74): Failed to open libwvm.so
+D/dalvikvm( 1376): GC_CONCURRENT freed 256K, 5% free 6228K/6535K, paused 5ms+4ms, total 59ms
+D/dalvikvm( 1376): WAIT_FOR_CONCURRENT_GC blocked 18ms
+E/WVMExtractor(   74): Failed to open libwvm.so
+E/WVMExtractor(   74): Failed to open libwvm.so
+D/dalvikvm( 1376): GC_CONCURRENT freed 215K, 5% free 6508K/6791K, paused 13ms+7ms, total 73ms
+D/dalvikvm( 1376): WAIT_FOR_CONCURRENT_GC blocked 23ms
+D/dalvikvm( 1376): GC_CONCURRENT freed 152K, 4% free 6879K/7111K, paused 13ms+12ms, total 66ms
+I/LocationHelperImpl( 1376): no network location provider, switching to gps
+W/LocationHelperImpl( 1376): no network or gps location provider, can't get a location
+I/RecognitionControllerImpl( 1376): startRecognition(#Intent;action=android.speech.action.RECOGNIZE_SPEECH;launchFlags=0x800000;component=com.google.android.voicesearch/.IntentApiActivity;B.fullRecognitionResultsRequest=true;S.calling_package=cz.jhg.googlenowvoicesearch;end)
+I/RecognitionControllerImpl( 1376): State change: STARTING -> STARTING
+I/AudioService(  260):  AudioFocus  requestAudioFocus() from android.media.AudioManager@41049400
+I/RecognitionControllerImpl( 1376): State change: STARTING -> RECOGNIZING
+I/ServerConnectorImpl( 1376): Starting TCP session, url=http://www.google.com/m/voice-search
+V/PhoneStatusBar(  332): setLightsOn(true)
+I/HAL     ( 1376): hw_get_module_by_class - name 'gralloc'
+I/HAL     ( 1376): hw_get_module_by_class - class_id 'gralloc',  path '/vendor/lib/hw/gralloc.emxx.so'
+E/IMGSRV  ( 1376): PVR: 
+E/IMGSRV  ( 1376): PVR: Memory Stats
+E/IMGSRV  ( 1376): PVR: ------------
+E/IMGSRV  ( 1376): PVR: 
+E/IMGSRV  ( 1376): PVR: High Water Mark = 0 bytes
+W/IMGSRV  ( 1376): pvr2dinit.c:161: PVR2DEnumerateDevices: display device name too long, truncating
+E/IMGSRV  ( 1376): PVR: 
+E/IMGSRV  ( 1376): PVR: Memory Stats
+E/IMGSRV  ( 1376): PVR: ------------
+E/IMGSRV  ( 1376): PVR: 
+E/IMGSRV  ( 1376): PVR: High Water Mark = 0 bytes
+V/HAL     ( 1376): loaded HAL id=gralloc path=/vendor/lib/hw/gralloc.emxx.so hmi=0x0 handle=0x40019798
+I/ActivityManager(  260): Displayed com.google.android.voicesearch/.IntentApiActivity: +961ms
+W/dalvikvm( 1376): No implementation found for native Lcom/google/android/voicesearch/endpointer/ResampleInputStream;.fir21:([BI[BII)V
+W/dalvikvm( 1376): threadid=16: thread exiting with uncaught exception (group=0x40a46300)
+E/AndroidRuntime( 1376): FATAL EXCEPTION: Thread-122
+E/AndroidRuntime( 1376): java.lang.UnsatisfiedLinkError: Native method not found: com.google.android.voicesearch.endpointer.ResampleInputStream.fir21:([BI[BII)V
+E/AndroidRuntime( 1376): 	at com.google.android.voicesearch.endpointer.ResampleInputStream.fir21(Native Method)
+E/AndroidRuntime( 1376): 	at com.google.android.voicesearch.endpointer.ResampleInputStream.read(ResampleInputStream.java:100)
+E/AndroidRuntime( 1376): 	at com.google.android.voicesearch.endpointer.ResampleInputStream.read(ResampleInputStream.java:69)
+E/AndroidRuntime( 1376): 	at java.io.BufferedInputStream.fillbuf(BufferedInputStream.java:142)
+E/AndroidRuntime( 1376): 	at java.io.BufferedInputStream.read(BufferedInputStream.java:309)
+E/AndroidRuntime( 1376): 	at com.google.android.voicesearch.endpointer.EndpointerInputStream.read(EndpointerInputStream.java:343)
+E/AndroidRuntime( 1376): 	at android.media.AmrInputStream.read(AmrInputStream.java:87)
+E/AndroidRuntime( 1376): 	at com.google.android.voicesearch.speechservice.AudioBuffer.captureLoop(AudioBuffer.java:136)
+E/AndroidRuntime( 1376): 	at com.google.android.voicesearch.speechservice.AudioBuffer.access$000(AudioBuffer.java:34)
+E/AndroidRuntime( 1376): 	at com.google.android.voicesearch.speechservice.AudioBuffer$1.run(AudioBuffer.java:107)
+W/ActivityManager(  260):   Force finishing activity com.google.android.voicesearch/.IntentApiActivity
+D/ServerConnectorImpl( 1376): Created session ChUQABoRaW50ZW50LXNwZWVjaC1hcGlSYgooVlMgMi4xLjQgb3M9W0FuZHJvaWQgNC4xLjEgcmVuZXNhc19lbWV2XRABGgkIBBDAPhgBIAAiATAyBWVuLVVTOggIARgAIABAAEUAAAAAShBmNTc3ZjM4MGUxMTJhOTU3
+I/ServerConnectorImpl( 1376): Creating TCP connection to 173.194.70.192:14258
+W/IMGSRV  (  248): sgxrender_targets.c:497: PB Watermark Info - Alloc: 0x1b , Free: 0x5c2
+I/RecognitionControllerImpl( 1376): State change: RECOGNIZING -> CANCELED
+I/AudioService(  260):  AudioFocus  abandonAudioFocus() from android.media.AudioManager@41049400
+I/RecognitionControllerImpl( 1376): Final state: CANCELED
+I/ServerConnectorImpl( 1376): Canceling recognition request
+I/ServerConnectorImpl( 1376): ClientReport{session_id=ChUQABoRaW50ZW50LXNwZWVjaC1hcGlSYgooVlMgMi4xLjQgb3M9W0FuZHJvaWQgNC4xLjEgcmVuZXNhc19lbWV2XRABGgkIBBDAPhgBIAAiATAyBWVuLVVTOggIARgAIABAAEUAAAAAShBmNTc3ZjM4MGUxMTJhOTU3,request_id=0,application_id=intent-speech-api,client_perceived_request_status=2,network_type=1,}
+I/AudioService(  260):  AudioFocus  abandonAudioFocus() from android.media.AudioManager@41049400
+D/dalvikvm( 1376): GC_CONCURRENT freed 395K, 7% free 7010K/7495K, paused 13ms+16ms, total 109ms
+I/RecognitionControllerImpl( 1376): State change: CANCELED -> CANCELED
+I/ClientReportSender( 1376): Sending 1 client reports over HTTP
+I/RecognitionControllerImpl( 1376): State change: CANCELED -> CANCELED
+I/SpeechServiceHttpClient( 1376): Closing the HTTP client.
+E/MasfSenderAsyncTask( 1376): Could not send the requests
+E/MasfSenderAsyncTask( 1376): java.io.IOException: bad response code: 404
+E/MasfSenderAsyncTask( 1376): 	at com.google.android.voicesearch.masf.MasfSender.send(MasfSender.java:116)
+E/MasfSenderAsyncTask( 1376): 	at com.google.android.voicesearch.masf.MasfSender.send(MasfSender.java:62)
+E/MasfSenderAsyncTask( 1376): 	at com.google.android.voicesearch.masf.MasfSenderAsyncTask.doInBackground(MasfSenderAsyncTask.java:52)
+E/MasfSenderAsyncTask( 1376): 	at com.google.android.voicesearch.masf.MasfSenderAsyncTask.doInBackground(MasfSenderAsyncTask.java:30)
+E/MasfSenderAsyncTask( 1376): 	at android.os.AsyncTask$2.call(AsyncTask.java:287)
+E/MasfSenderAsyncTask( 1376): 	at java.util.concurrent.FutureTask$Sync.innerRun(FutureTask.java:305)
+E/MasfSenderAsyncTask( 1376): 	at java.util.concurrent.FutureTask.run(FutureTask.java:137)
+E/MasfSenderAsyncTask( 1376): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1076)
+E/MasfSenderAsyncTask( 1376): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:569)
+E/MasfSenderAsyncTask( 1376): 	at java.lang.Thread.run(Thread.java:856)
+
+
+I think this is critical....
+
+
+W/dalvikvm( 1376): No implementation found for native Lcom/google/android/voicesearch/endpointer/ResampleInputStream;.fir21:([BI[BII)V
+
+I found these in JB source code:
+
+./frameworks/base/media/jni/android_media_ResampleInputStream.cpp
+./frameworks/base/media/java/android/media/ResampleInputStream.java
+
+It looks like android_media_ResampleInputStream.cpp (where fir21 is implamented) hasn't been compiled... Could it be?
+
+Recompiling, adding debug logs to android_media_ResampleInputStream.cpp ...
+
+
+
+
+
