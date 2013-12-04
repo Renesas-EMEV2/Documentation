@@ -89,22 +89,49 @@ E/MasfSenderAsyncTask( 1376): 	at java.util.concurrent.ThreadPoolExecutor.runWor
 E/MasfSenderAsyncTask( 1376): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:569)
 E/MasfSenderAsyncTask( 1376): 	at java.lang.Thread.run(Thread.java:856)
 
-
-I think this is critical....
-
+I think this part is critical....
 
 W/dalvikvm( 1376): No implementation found for native Lcom/google/android/voicesearch/endpointer/ResampleInputStream;.fir21:([BI[BII)V
+W/dalvikvm( 1376): threadid=16: thread exiting with uncaught exception (group=0x40a46300)
+E/AndroidRuntime( 1376): FATAL EXCEPTION: Thread-122
+E/AndroidRuntime( 1376): java.lang.UnsatisfiedLinkError: Native method not found: com.google.android.voicesearch.endpointer.ResampleInputStream.fir21:([BI[BII)V
 
 I found these in JB source code:
 
 ./frameworks/base/media/jni/android_media_ResampleInputStream.cpp
 ./frameworks/base/media/java/android/media/ResampleInputStream.java
 
-It looks like android_media_ResampleInputStream.cpp (where fir21 is implamented) hasn't been compiled... Could it be?
+It looks like android_media_ResampleInputStream.cpp (where fir21 is implemented) hasn't been compiled... Could it be?
 
 Recompiling, adding debug logs to android_media_ResampleInputStream.cpp ...
 
+ - - - - -
 
+ 22 Nov 2013
 
+No differences noticed in logs...
 
+Question raised in 
 
+ http://stackoverflow.com/questions/20142568/no-implementation-found-for-native-fir21
+ https://groups.google.com/forum/#!topic/android-porting/BZmbV8qPziU
+
+ - - - - -
+
+ 26 Nov
+
+no feedback so far from forums above...
+
+Enabling debug logs I can see the library being loaded and methods registered:
+
+I/MediaPlayerJNI(   72): JNI_OnLoad registering functions...
+I/ResampleInputStream(   72): android/media/ResampleInputStream JNI registering
+I/dalvikvm(   72): threadid=1: recursive native library load attempt (/system/lib/libmedia_jni.so)
+D/MtpDeviceJNI(   72): register_android_mtp_MtpDevice
+I/dalvikvm(   72): threadid=1: recursive native library load attempt (/system/lib/libmedia_jni.so)
+I/dalvikvm(   72): threadid=1: recursive native library load attempt (/system/lib/libmedia_jni.so)
+I/MediaPlayerJNI(   72): JNI_OnLoad functions registered
+
+So I don't understand why, when java requires "fir21" from ResampleInputStream JNI, it can't find it.
+
+Naming should be correct, I guess... (this is all OOB AOSP code).
