@@ -5,7 +5,7 @@
 
  5 Jul 2013
 
-Copied IT6610 driver to my kenel branch, from Smallart kernel:
+Copied IT6610 driver to my kernel branch, from Smallart kernel:
 
 $ git status
 # On branch Livall_JB
@@ -29,7 +29,7 @@ $ git status
 
 Compilation OK.
 
-On bootup with USB mouse pluged in and HDMI plugged to my TV, I get these in dmesg
+On bootup, with USB mouse plugged in and HDMI plugged to my TV, I get these in dmesg:
 
 <6>emxx_fb: registered device fb
 <4>hdmi_it6610_init ret!
@@ -42,7 +42,7 @@ On bootup with USB mouse pluged in and HDMI plugged to my TV, I get these in dme
 <4>hdmi_it6610_pf_probe: register_chrdev 0, it6610
 <4>hdmi_it6610_pf_probe: success
 
-but video display is still on tablet LCD, not on TV.
+but video display is still on tablet LCD, not on TV...
 
  - - - - 
 
@@ -65,7 +65,7 @@ But I can't find any handling of GPIO_P27, in either Smallart or Livall kernel c
 
 It's probably handled fully in uboot? 
 
-With Smallar tablet, I get these from dmesg:
+With a Smallart tablet, I get these from dmesg:
 
 dmesg.GB.working:<4>===== HDMI inserted =====
 dmesg.GB.working:<4>HDMI output mode, lcd backlight off.
@@ -96,7 +96,7 @@ so, that means HDP is detected from the IT6610 chip (which has an input from HDP
 
 Issue is whether HDMITX_DevLoopProc is ever called in my case ...
 
-In emxx_it6610.c probe function, irq hander seems initialized proerly, with IRQ received from GPIO_P6 as per schematics.
+In emxx_it6610.c probe function, irq handler seems initialized properly, with IRQ received from GPIO_P6 as per schematics.
 
 Not sure what's still missing....
 
@@ -126,13 +126,11 @@ Should be 0x00000555
 
 (P26 and P28 are now set as pulled-down inputs)
 
-  ... to build and test ...
-
  - - - -
 
  8 Jul 2013
 
-Another thing I'm missing is in JB, system settings, HDMI options...
+Another thing I'm missing is HDMI options, in JB System Settings.
 
 Found this code in PhoneWindowManager.java:
 
@@ -147,8 +145,64 @@ which is based upon kernel driver setting up an "hdmi" switch device on fs, as f
 
  https://github.com/defer/semc-kernel-msm8x60/commit/547110e9d048fd0a7c34d0ad305a240a080bfe4f
 
-We miss something like this in our kernel driver code.
+Do we also miss something like this in our kernel driver code?
+
+But probably that's for the "Hot-plug" of HDMI... maybe.
 
  - - - -
 
+ 25 Nov 2013
+
+Looking for init of CHG_PULL1 in kernel:
+
+$ find . -name *.c | xargs grep -w CHG_PULL1
+./drivers/input/touchscreen/pixcir_i2c_ts_v2.6.c:      writel(readl(CHG_PULL1)|0xC000, CHG_PULL1);
+./drivers/input/touchscreen/goodix_touch.c:	       writel(readl(CHG_PULL1)|0xC000, CHG_PULL1);
+./drivers/input/touchscreen/pixcir_i2c_ts.c:	       writel(readl(CHG_PULL1)|0xC000, CHG_PULL1);
+./arch/arm/mach-emxx/emev_reg_init.c:	               writel((readl(CHG_PULL1) | 0x00000005), CHG_PULL1);
+
+So, the PIN27 pulldown control (bit 4-7: 0x------5-) is missing in kernel as well.
+
+Adding it, like below:
+
+        // HDMI HPD input
+        // set pin 27 to gpio mode and enable input
+        writel(readl(CHG_PINSEL_G000) | (0x1 << 27), CHG_PINSEL_G000);
+        writel((readl(CHG_PULL1) | 0x00000050), CHG_PULL1);
+
+... rebuild ... Need to test!
+
+ - - - - 
+
+ 2 Dec 2013
+
+Fixing a mistake in emev_board.h, for I2C definitions, like below:
+
+#if defined(CONFIG_EMXX_HDMI)
+#if defined(CONFIG_EMXX_HDMI_ADV7523)
+#define I2C_SLAVE_HDMI_NAME	"adv7523"
+#define I2C_SLAVE_HDMI_ADDR	0x39
+#endif
+#if defined(CONFIG_EMXX_HDMI_IT6610)
+#define I2C_SLAVE_HDMI_NAME	"it6610"
+#define I2C_SLAVE_HDMI_ADDR	0x4c
+#endif
+#endif
+
+Enabling debug logs about HDMI in kernel and rebooting (no HDMI diplay attached) I get:
+
+<4>hdmi_it6610_init ret!
+<4>hdmi_it6610_init ret=0!
+<4>hdmi_it6610_pf_probe!
+<4>i2c_hdmi_init!
+<4>i2c_hdmi_init =0!
+<4>hdmi_it6610_reset: hdmi it6610 reset
+<4>hdmi_it6610_pf_probe: register_chrdev 0, it6610
+<4>hdmi_it6610_pf_probe: success
+<4>hdmi_i2c_probe!
+<4>HDMIInitCAT6611:InitCAT6611():
+
+Note how we get to the InitCAT611(), but not to the HDMITX_DevLoopProc(), where the HDP check is done.
+
+Need to re-test with the HDMI display plugged-in on boot-up...
 
