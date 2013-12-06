@@ -206,3 +206,45 @@ Note how we get to the InitCAT611(), but not to the HDMITX_DevLoopProc(), where 
 
 Need to re-test with the HDMI display plugged-in on boot-up...
 
+ - - - -
+
+ 6 Dec 
+
+Starting up with HDMI display plugged-in I get an "Unsupported mode" on display (which keeps flashing some noise image) and device LCD still active.
+
+In dmesg I get lots more debug messages (see HDMI/hdmi.out) on startup:
+
+[...]
+<4>HDMIInitCAT6611:InitCAT6611():
+<4>==>>hdmi irq 0 
+<4>HDMICheckHDMITX:REG_SYS_STATUS = ec
+<4>HDMICheckHDMITX:INT_Handler: reg06 = 03
+<4>HDMICheckHDMITX:INT_Handler: reg07 = 00
+<4>===== HDMI inserted =====
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 0
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 32
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 64
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 96
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 128
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 160
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 192
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 224
+<4>HDMIEnableVideoOutput:EnableVideoOutput()
+<4>HDMISetInputMode:SetInputColorMode(10, 00)
+<4>HDMISetCSCScale:Input mode is RGB444
+<4>HDMISetCSCScale:Output mode is YUV444
+[...]
+
+Then, a series of messages like below follow:
+
+<4>==>>hdmi irq 0 
+<4>HDMICheckHDMITX:REG_SYS_STATUS = f0HDMICheckHDMITX:INT_Handler: reg06 = 00
+<4>HDMICheckHDMITX:INT_Handler: reg07 = 01
+<4>HDMICheckHDMITX:interrupt Authenticate Fail.
+<4>HDMIHDCP_Authenticate:HDCP_Authenticate():
+<4>HDMIHDCP_Authenticate:BCaps = 82 BStatus = 1000
+<4>HDMIHDCP_GetBKSV:HDCP_GetBCaps(): DDC Done.
+<4>HDMIHDCP_Authenticate:BKSV C1 97 84 17 3F
+<4>HDMIHDCP_Authenticate:int2 = 00 DDC_Status = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+[...]
