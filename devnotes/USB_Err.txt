@@ -1,0 +1,47 @@
+Plugging in a USB memory stick (8Gb), device notifies a "damaged SD card" errro.
+
+Logcat reports below:
+
+I/Vold    (   67): /dev/block/vold/16777215:255 being considered for volume u_disk
+D/Vold    (   67): Volume u_disk state changing 1 (Idle-Unmounted) -> 3 (Checking)
+D/MountService(  257): volume state changed for /storage/usbdisk0 (unmounted -> checking)
+D/MountService(  257): sendStorageIntent Intent { act=android.intent.action.MEDIA_CHECKING dat=file:///storage/usbdisk0
+(has extras) }
+D/YouTube ( 2402): apps.youtube.core.transfer.aw.onReceive:757 media mounted false
+D/MediaScannerReceiver( 2943): action: android.intent.action.MEDIA_UNMOUNTED path: /storage/usbdisk0
+I/StorageNotification(  339): Media {/storage/usbdisk0} state changed from {removed} -> {unmounted}
+I//system/bin/fsck_msdos(   67): ** /dev/block/vold/16777215:255
+I//system/bin/fsck_msdos(   67): Can't open: No such file or directory
+I/logwrapper(   67): /system/bin/fsck_msdos terminated by exit(8)
+E/Vold    (   67): Filesystem check failed (unknown exit code 8)
+E/Vold    (   67): /dev/block/vold/16777215:255 failed FS checks (I/O error)
+D/Vold    (   67): Volume u_disk state changing 3 (Checking) -> 1 (Idle-Unmounted)
+
+while dmesg reports below:
+
+<6>usb 1-1.4: new high speed USB device using emxx-ehci-driver and address 4
+<6>scsi1 : usb-storage 1-1.4:1.0
+<5>scsi 1:0:0:0: Direct-Access     TDK LoR  TF10             PMAP PQ: 0 ANSI: 4
+<5>sd 1:0:0:0: [sda] 15122432 512-byte logical blocks: (7.74 GB/7.21 GiB)
+<5>sd 1:0:0:0: [sda] Write Protect is off
+<7>sd 1:0:0:0: [sda] Mode Sense: 23 00 00 00
+<3>sd 1:0:0:0: [sda] Assuming drive cache: write through
+<3>sd 1:0:0:0: [sda] Assuming drive cache: write through
+<4>async/0: page allocation failure. order:4, mode:0xd0
+<4>[<c0034acc>] (unwind_backtrace+0x0/0x164) from [<c009dd2c>] (__alloc_pages_nodemask+0x508/0x55c)
+<4>[<c009dd2c>] (__alloc_pages_nodemask+0x508/0x55c) from [<c00b9260>] (cache_alloc_refill+0x2b4/0x550)
+<4>[<c00b9260>] (cache_alloc_refill+0x2b4/0x550) from [<c00b964c>] (kmem_cache_alloc+0x60/0xb4)
+<4>[<c00b964c>] (kmem_cache_alloc+0x60/0xb4) from [<c0101020>] (rescan_partitions+0xd8/0x404)
+<4>[<c0101020>] (rescan_partitions+0xd8/0x404) from [<c00e61dc>] (__blkdev_get+0x23c/0x318)
+<4>[<c00e61dc>] (__blkdev_get+0x23c/0x318) from [<c01005b8>] (register_disk+0xd4/0x150)
+<4>[<c01005b8>] (register_disk+0xd4/0x150) from [<c0184210>] (add_disk+0xc8/0x120)
+<4>[<c0184210>] (add_disk+0xc8/0x120) from [<c01fa458>] (sd_probe_async+0xd8/0x19c)
+<4>[<c01fa458>] (sd_probe_async+0xd8/0x19c) from [<c00782f8>] (async_thread+0x120/0x2fc)
+<4>[<c00782f8>] (async_thread+0x120/0x2fc) from [<c0071a24>] (kthread+0x78/0x80)
+<4>[<c0071a24>] (kthread+0x78/0x80) from [<c002f38c>] (kernel_thread_exit+0x0/0x8)
+
+A similar crash is fixed on 3.9 by:
+
+ https://github.com/torvalds/linux/commit/ac2e5327a5e4f6477afc6a3b3b0dc6e0476d71d4
+
+Need to verify whether a similar fix is applicable to our 2.6.35 kernel...
