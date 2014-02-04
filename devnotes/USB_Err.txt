@@ -45,3 +45,5 @@ A similar crash is fixed on 3.9 by:
  https://github.com/torvalds/linux/commit/ac2e5327a5e4f6477afc6a3b3b0dc6e0476d71d4
 
 Need to verify whether a similar fix is applicable to our 2.6.35 kernel...
+
+Same code is found inside ./fs/partitions/check.c, in our version.
