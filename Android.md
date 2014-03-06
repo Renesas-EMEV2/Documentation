@@ -246,7 +246,7 @@ NOTE - The script assumes $AOSP and $KERNEL variables are set to the home dir of
 
 In order to finally "flash" all this onto your device, we suggest to review the documentation at:
 
-	https://github.com/Renesas-EMEV2/Documentation/
+	https://github.com/Renesas-EMEV2/Documentation/blob/emev-4.1/Bootloader.md
 
 Check out "Preparing an SD card for device firmware update", or "Preparing a "bootable" SD card".
 
