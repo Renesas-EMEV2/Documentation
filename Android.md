@@ -180,36 +180,40 @@ See also the corrsponding documentation in
 
  https://github.com/Renesas-EMEV2/Documentation/Kernel.md
 
-Building SGX interface modules
-------------------------------
-
-The kernel modules
-
- emxxlfb.ko
- pvrsrvkm.ko
-
-should be recompiled manually, before completing the packaging.
-
-See how to in device/renesas/emev/sgx_new/eurasia_km/compile.txt, or build.sh
-
-I wish one day this step is integrated within the main Android build.
-
 About OMX and SGX binaries
 --------------------------
 
-The firmware binaries and libraries managing:
+The binaries and libraries managing:
 
  - 3D and graphics accelerator (SGX)
  - the video decoder (OMX)
 
 are released only as pre-compiled libraries, source code being proprietary.
 
-These are stored in the repository as binaries, under
+These are stored in the repository under
 
 	$AOSP/device/renesas/emev/sgx
-	$AOSP/device/renesas/emev/omf  
+	$AOSP/device/renesas/emev/omf
 
-and the build scripts take care of deploying them to the target locations.
+and the build take care of deploying them to the target location.
+
+Building SGX interface modules
+------------------------------
+
+Although the SGX driver kernel modules
+
+	emxxlfb.ko
+	pvrsrvkm.ko
+
+are provided in the repository as pre-compiled binaries, source code is available and they could be recompiled too.
+
+See how in
+
+	device/renesas/emev/sgx/SGX1.8_EMEV_KM/eurasia_km/compile.txt, or build.sh
+
+(maybe, one day this step would be integrated within the main Android build).
+
+The device/renesas/emev/um directory includes the "user modules" (a set of Android libraries) whose source code is proprietary and can't be shared publicly.
 
 About Broadcom BCM4329 WiFi driver
 ----------------------------------
@@ -222,33 +226,24 @@ Source code for this is proprietary to Livall and needs recompiling only in case
 
 Other tablet manufacturers may provide different solutions, like for example a USB WiFi dongle, which may require a different kernel module.
 
-I found this tutorial very useful, about the integration of a WiFi driver in Android: 
+I found this tutorial very useful to com, about the integration of a WiFi driver in Android: 
 
  http://blog.linuxconsulting.ro/2010/04/porting-wifi-drivers-to-android.html
 
 Packaging files for a firmware update
 -------------------------------------
 
-NOTE - Remeber to re-build Android after SGX and OMF files are completed, as expleined above.
-
-Then, in order to wrap up the final build and prepar it for delivery to the device, the script
+In order to wrap up the final build and prepare it for delivery to the device, the script
 
 	$AOSP/device/renesas/emev/pack.sh <destination> 
 
-collects the complete Android file system and kernel image and put them into destination dir, which could be the Fat-32 formatted SD card home dir for example (see below).
+collects the complete Android file system and kernel image and put them into destination dir.
 
-The content of this directory then needs to be transferred into the root folder of an SD-card, (max 2Gb size allowed) formatted as FAT16 or FAT32, and the tablet started with teh Vol+ & Power to replace internal NAND firmware.
+A script to prepare the SD card to be used to finally "flash" the newly built firmware is described in:
 
-NOTE - The script assumes $AOSP and $KERNEL variables are set to the home dir of the AOSP and Kernel code on your host. E.g.:
+	https://github.com/Renesas-EMEV2/Documentation/Bootloader.md
 
-	export AOSP=~/renesas/jb
-	export KERNEL=~/renesas/kernel
-
-In order to finally "flash" all this onto your device, we suggest to review the documentation at:
-
-	https://github.com/Renesas-EMEV2/Documentation/
-
-Check out "Preparing an SD card for device firmware update", or "Preparing a "bootable" SD card".
+Check out "Preparing an SD card for device firmware update".
 
 About Google Apps
 -----------------

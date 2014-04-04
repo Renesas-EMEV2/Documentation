@@ -222,7 +222,9 @@ https://github.com/Renesas-EMEV2/Documentation/blob/emev-4.1/Android.md
 Preparing a "bootable" SD card
 ------------------------------
 
-Booting from SD card is normally meant for firmware updates, but we could also make the system start the Android on the SD card itself, by properly partitioning and preparing it to be bootable, for faster test cycles during development stages.
+Booting up from the SD card is an operation normally only meant to trigger a firmware update.
+
+Alternatively, we could also make the system start the Android on the SD card itself, by properly partitioning and preparing it to be bootable, e.g. for faster test cycles during development stages.
 
 The following approach could be used:
 
@@ -234,7 +236,7 @@ The following command builds the bootloader as per point 3 above:
 
 	make emev_sdtest_config
 
-The complete script to prepare the SD card in such way is provided:
+The complete script to prepare the SD card for booting up to Android is:
 
 	testsd/testsd.sh /dev/sdd  (where "/dev/sdd" is the mount point of the SD on the host)
 
@@ -251,7 +253,6 @@ with:
 NOTE - The android file system (android-fs4.tar.gz) and kernel image (uImage) are not included and should be stored in testsd/ before executing the script.
 
 To be noticed also that running Android from the SD-card makes it MUCH slower that from the internal NAND, especially first time it's booted-up (which may take several minutes to complete), but also for every single action made on device.
-
 
 Using serial console and reloading kernel image
 -----------------------------------------------
