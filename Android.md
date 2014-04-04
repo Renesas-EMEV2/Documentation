@@ -241,7 +241,7 @@ collects the complete Android file system and kernel image and put them into des
 
 A script to prepare the SD card to be used to finally "flash" the newly built firmware is described in:
 
-	https://github.com/Renesas-EMEV2/Documentation/Bootloader.md
+	https://github.com/Renesas-EMEV2/Documentation/blob/emev-4.1/Bootloader.md
 
 Check out "Preparing an SD card for device firmware update".
 
