@@ -248,3 +248,198 @@ Then, a series of messages like below follow:
 <4>HDMIHDCP_Authenticate:int2 = 00 DDC_Status = 82
 <4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
 [...]
+
+
+Note that having "===== HDMI inserted =====" in logs means at least this one is called:
+
+   cat6611_sys.c -> hdmi_notifier_call_chain(EMXX_FB_OUTPUT_MODE_HDMI_720P, NULL);
+
+which in turns should trigger this:
+
+   emxx_fb.c -> hdmi_output_setup()
+
+ - - - - - -
+
+ 8 Dec 
+
+Got by Xu a new set of patches:
+
+ HDMI/HDMI_commits.zip
+
+$ ls -l commit-*
+-rw-r--r-- 1 ffxx68 ffxx68  13780 Dec  7 17:42 commit-213cabb
+-rw-r--r-- 1 ffxx68 ffxx68 116178 Dec  7 17:43 commit-5ce457b
+-rw-r--r-- 1 ffxx68 ffxx68   5579 Dec  7 17:43 commit-a380095
+-rw-r--r-- 1 ffxx68 ffxx68    772 Dec  7 17:41 commit-a54ec8f
+-rw-r--r-- 1 ffxx68 ffxx68    835 Dec  7 17:43 commit-a76aff5
+-rw-r--r-- 1 ffxx68 ffxx68  22020 Dec  7 17:43 commit-ab53d57
+-rw-r--r-- 1 ffxx68 ffxx68 229388 Dec  7 17:44 commit-d120de5
+-rw-r--r-- 1 ffxx68 ffxx68    832 Dec  7 17:43 commit-f78f109
+-rw-r--r-- 1 ffxx68 ffxx68   3054 Dec  7 17:42 commit-f7b31fd
+
+which can drive HDMI output on the HDMI dongle.
+
+Among all (most changes seems already there...), need to investigate about these:
+
+ commit-a380095 -> hdmi_output_setup() - which is then changed again by commit-ab53d57 
+ commit-a54ec8f -> change from 50 to 60Hz mode
+ commit-a76aff5 -> LCD pin drive 12 to 4mA
+ commit-ab53d57 -> HDMI screen size (100%, 95%, 80%)
+ commit-f78f109 & commit-f7b31fd -> LCD underrun fix ?
+
+ - - - - - -
+
+Applying patches one by one, manually (patch don't work).
+
+1) commit-a54ec8f (change from 50 to 60Hz mode) first of all...
+
+ -> HDMI not working (TV doesn't lock on display and LCD screen is kept on)
+
+2) with commit-a76aff5 (LCD pin current drive) ...
+
+ -> HDMI not working (as above))
+
+ - - - - - -
+
+3) commit-ab53d57 "HDMI output size change" 
+
+Changes to add selection (how) of 100%, 95%, 90%, 85% in 720P HDMI mode
+ 
+ build: OK 
+ test no HDMI: OK (infact, no functional change is introduced in this case)
+Just a minor issue, on boot up, before "android" logo, a random color bars are briefly shown on the black screen.
+
+ test HDMI: not working (as above)
+
+ - - - - - - 
+
+ 10 Dec
+
+4) commit-213cabb "Fixed HDMI output size changes"
+
+Most of code was removed, but later reintroduced with commit-ab53d57 (for HDMI size selection).
+
+ build & no-HDMI test: OK
+ test HDMI: ?
+
+5) commit-5ce457b "Modified HDMI detect and audio output"
+
+This is the upgrade from IT6610 driver version: 1.12 to 1.15.
+Nothing to apply in my case, as I'm already on 1.15.
+
+6) commit-a380095 "HDMI video dynamic switching"
+
+Most of changes already present. 
+Only change applied to hdmi_output_setup(), adding FB update (although that was removed by commit-ab53d57...).
+
+ build & no-HDMI test: OK
+ HDMI test: bootup fails!!!
+
+-> Removed 6)
+
+ build & no-HDMI test: OK
+ HDMI test: not working (as before)
+
+ - - - - - -
+
+ 16 Dec 2013
+
+Trying to understand the reason of this error:
+
+<4>==>>hdmi irq 0 
+<4>HDMICheckHDMITX:REG_SYS_STATUS = f0HDMICheckHDMITX:INT_Handler: reg06 = 00
+<4>HDMICheckHDMITX:INT_Handler: reg07 = 01
+<4>HDMICheckHDMITX:interrupt Authenticate Fail.
+
+Here
+
+ http://wenku.baidu.com/view/f7cec6868762caaedd33d442.html
+
+I find the programing guide for CAT6613 (it's not 6611, but very similar I guess).
+
+on page 5, the return code is explaied as:
+
+"Authentication fail event responded in reg07[0] is activated whenever HDCP authentication fail, 
+include the initial authentication checking fail or any integrating check fail. Whenever this event 
+occurs, the HDCP authentication should be restart. This event is enabled by reg0A[0] = ‘0’, and 
+cleared by setting reg0C[2] when writing reg0E[0] with ‘1’."
+
+Looking for explanation, that doesn't help much, as DHCP is about encryption of protected data...
+
+ - - - - -
+
+ 17 Dec
+
+Got Smallart HDMI dongle kernel:
+
+ /media/u02/RenesasEV2/Smallart/kernel_dongle/kernel_uhost
+
+Comparing these files in drivers/video/emxx, for my kernel wrt to that one:
+
+ emxx_fb.c
+ emxx_fb.h
+ emxx_lcd.c
+ emxx_lcd.h
+ emxx_lcdhw.c
+ emxx_lcdhw.h
+ it6610/cat6611_drv.c
+ it6610/cat6611_drv.h
+ it6610/cat6611_sys.c
+ it6610/cat6611_sys.h
+ it6610/emxx_it6610.c
+ it6610/emxx_it6610.c
+ it6610/*
+
+Most significant differences are in emxx_fb.c and emxx_lcdhw.c.
+
+One critical difference (I think) in emxx_lcdhw.c, within change_output(), is:
+
+- my kernel:
+...
+	case EMXX_FB_OUTPUT_MODE_LCD:
+		/* WVGA LCD */
+		change_pinsel_wvga();
+		break;
+	case EMXX_FB_OUTPUT_MODE_HDMI_1080I:
+	case EMXX_FB_OUTPUT_MODE_HDMI_720P:
+		/* HDMI */
+		change_pinsel_hdmi();
+		/* No using spi for livall
+		unreset_usi3();*/
+		break;
+
+
+- Smallart dongle, within change_output():
+...
+	case EMXX_FB_OUTPUT_MODE_LCD:
+		/* WVGA LCD */
+		change_pinsel_wvga();
+		break;
+	case EMXX_FB_OUTPUT_MODE_HDMI_1080I:
+	case EMXX_FB_OUTPUT_MODE_HDMI_720P:
+		/* HDMI */
+		change_pinsel_wvga();
+		break;
+
+Also, Smallart dongle does not handle the sub-100% 720P HDMI resolutions.
+
+These, along with other differences need to be ported and tested...
+
+ - - - - -
+
+ 11 Feb 2014
+
+Reset all changes and created new branch for debug and testing:
+ 
+ Livall_JB_HDMIdebug
+
+Discussion to be continued in new file HMDIdebug.txt...
+ 
+
+
+
+
+
+
+
+ 

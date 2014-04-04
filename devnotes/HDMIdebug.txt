@@ -1,0 +1,839 @@
+
+ 10 Feb 2014
+
+Reset all changes and created new branch for debug and testing:
+ 
+ Livall_JB_HDMIdebug
+
+This already includes the patch which ported the IT6610 HDMI driver from Smallart kernel.
+
+Discussion continued from HMDI.txt
+
+ - - - - - -
+
+First of all, need to fix a mistake HDMI I2C name in 
+
+ arch/arm/mach-emxx/include/mach/emev_board.h
+
+like below:
+
+#if defined(CONFIG_EMXX_HDMI)
+#if defined(CONFIG_EMXX_HDMI_ADV7523)
+#define I2C_SLAVE_HDMI_NAME	"adv7523"
+#define I2C_SLAVE_HDMI_ADDR	0x39
+#endif
+#if defined(CONFIG_EMXX_HDMI_IT6610)
+#define I2C_SLAVE_HDMI_NAME	"it6610"
+#define I2C_SLAVE_HDMI_ADDR	0x4c
+#endif
+#endif
+
+Then, enabling basic debug logging in:
+
+ drivers/video/emxx/emxx_lcdhw.c
+ drivers/video/emxx/emxx_it6610.c
+
+Make and test...
+
+No HDMI display plugged in:
+
+$ adb shell dmesg | grep -i hdmi
+<4>hdmi_it6610_init ret!
+<4>hdmi_it6610_init ret=0!
+<4>hdmi_it6610_pf_probe!
+<4>i2c_hdmi_init!
+<4>i2c_hdmi_init =0!
+<4>hdmi_it6610_reset: hdmi it6610 reset
+<4>hdmi_it6610_pf_probe: register_chrdev 0, it6610
+<4>hdmi_it6610_pf_probe: success
+
+$ adb shell dmesg | grep -i lcd
+<7>Registered led device: lcd-backlight
+<7>emxx_lcdhw: init_lcdhw: 
+<7>emxx_lcdhw: lcd_module_hw_power_on: 
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x03) ->param(0x01)
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x00) ->param(0x00)
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x01) ->param(0x01)
+[...]
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x9d) ->param(0x00)
+<7>emxx_lcdhw: lcd_hw_init: 
+<7>emxx_lcdhw: change_pinsel_wvga: SMU_LCDLCLKDIV = 0x00000009
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PINSEL_G000 = 0xff0bffeb
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PINSEL_G032 = 0x20020000
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_LCD_ENABLE = 0x00000001
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PINSEL_LCD3 = 0x00000000
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL2 = 0x00000000
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL4 = 0x0dc04ddc
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL5 = 0xdddddddd
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL2 = 0x44444400
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL4 = 0x0dc44ddc
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL5 = 0xdddddddd
+<7>emxx_lcdhw: lcd_controller_hw_init: 
+<7>emxx_lcdhw: lcd_hw_int_factor_clr: 
+<7>emxx_lcdhw: lcd_hw_int_disable: 
+<7>emxx_lcdhw: lcd_hw_int_enable: 
+<7>emxx_lcdhw: lcd_controller_hw_init_lcdsize: 
+<7>emxx_lcdhw: imc_hw_init: 
+<7>emxx_lcdhw: imc_hw_init_preset_gamma: 
+<7>emxx_lcdhw: imc_hw_init_preset_yuv: 
+<7>emxx_lcdhw: imc_hw_init_preset_burst: 
+<7>emxx_lcdhw: imc_hw_init_vsync_wb: 
+<7>emxx_lcdhw: imc_hw_init_vsync_alphasel: 
+<7>emxx_lcdhw: imc_hw_set_update_vsync: in
+<7>emxx_lcdhw: imc_hw_init_reserve_l0: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l1a: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l1b: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l1c: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l2a: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l2b: 
+<7>emxx_lcdhw: imc_hw_init_reserve_bg: 
+<7>emxx_lcdhw: lcd_hw_start: 
+<7>emxx_lcdhw: lcd_module_hw_wakeup: 
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x02) ->param(0x00)
+<7>emxx_lcdhw: lcd_hw_backlight_on: 
+
+ - - - - -
+
+Need to test with HDMI display plugged in ...
+
+
+No difference with respect to above.
+
+Added debug in drivers/video/emxx/it6610/hdmitx.h.
+
+Also added PIN27 pulldown control in kernel, into arch/arm/mach-emxx/emev_reg_init.c :
+
+        // HDMI HPD input
+        // set pin 27 to gpio mode and enable input
+        writel(readl(CHG_PINSEL_G000) | (0x1 << 27), CHG_PINSEL_G000);
+        writel((readl(CHG_PULL1) | 0x00000050), CHG_PULL1);
+
+Make and test, with HDMI display plugged in.
+
+I can see the "android" bootup logo flashing on display, but it can't lock on image.
+
+The HDMI inserted is captured in dmesg:
+
+$ adb shell dmesg | grep -i hdmi
+<4>hdmi_it6610_init ret!
+<4>hdmi_it6610_init ret=0!
+<4>hdmi_it6610_pf_probe!
+<4>i2c_hdmi_init!
+<4>i2c_hdmi_init =0!
+<4>hdmi_it6610_reset: hdmi it6610 reset
+<4>hdmi_it6610_pf_probe: register_chrdev 0, it6610
+<4>hdmi_it6610_pf_probe: success
+<4>hdmi_i2c_probe!
+<4>HDMIInitCAT6611:InitCAT6611():
+<4>==>>hdmi irq 0 
+<4>HDMICheckHDMITX:INT_Handler: reg06 = 03
+<4>HDMICheckHDMITX:INT_Handler: reg07 = 00
+<4>===== HDMI inserted =====
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 0
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 32
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 64
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 96
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 128
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 160
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 192
+<4>HDMIReadEDID:ReadEDID(): ReqCount = 32, bCurrOffset = 224
+<4>HDMIEnableVideoOutput:EnableVideoOutput()
+<4>HDMISetInputMode:SetInputColorMode(10, 00)
+<4>HDMISetCSCScale:Input mode is RGB444
+<4>HDMISetCSCScale:Output mode is YUV444
+<4>HDMISetCSCScale:CSC = RGB2YUV 2 HDMISetCSCScale:ITU709 0-255 HDMISetupAFE:SetupAFE()
+<4>HDMIFireAFE:reg[61] = 00HDMIFireAFE:reg[62] = 19 HDMIFireAFE:reg[63] = 01 HDMIFireAFE:reg[64] = 1E HDMIFireAFE:reg[65] = 00
+<4>HDMISetAVIInfoFrame:SetAVIInfo(): HDMISetAVIInfoFrame:
+<4>HDMIHDCP_Authenticate:HDCP_Authenticate():
+<4>HDMIHDCP_Authenticate:Sink HDCP in DVI mode over HDMI,do not authenticate and encryption. BCaps = 82 BStatus = 0
+[...]
+<4>HDMIHDCP_Authenticate:Sink HDCP in DVI mode over HDMI,do not authenticate and encryption. BCaps = 82 BStatus = 0
+<4>HDMIHDCP_Authenticate:Not a HDMI mode,do not authenticate and encryption. BCaps = 82 BStatus = 0
+<4>HDMIHDCP_Authenticate:BCaps = 82 BStatus = 0000
+<4>HDMIHDCP_GetBKSV:HDCP_GetBCaps(): DDC Done.
+<4>HDMIHDCP_Authenticate:BKSV C1 97 84 17 3F
+<4>HDMIHDCP_Authenticate:int2 = 00 DDC_Status = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+[...]
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 80 reg16 = 82
+<4>==>>hdmi irq 0 
+<4>HDMICheckHDMITX:INT_Handler: reg06 = 00
+<4>HDMICheckHDMITX:INT_Handler: reg07 = 01
+<4>HDMICheckHDMITX:interrupt Authenticate Fail.
+<4>HDMIHDCP_Authenticate:HDCP_Authenticate():
+<4>HDMIHDCP_Authenticate:BCaps = 82 BStatus = 1000
+<4>HDMIHDCP_GetBKSV:HDCP_GetBCaps(): DDC Done.
+<4>HDMIHDCP_Authenticate:BKSV C1 97 84 17 3F
+<4>HDMIHDCP_Authenticate:int2 = 00 DDC_Status = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 00 reg16 = 82
+<4>HDMIHDCP_Authenticate:reg46 = 80 reg16 = 82
+<4>==>>hdmi irq 0 
+<4>HDMICheckHDMITX:INT_Handler: reg06 = 07
+<4>HDMICheckHDMITX:DDC BUS HANG.
+<4>HDMICheckHDMITX:Unplug, 1d 30
+<4>HDMICheckHDMITX:INT_Handler: reg07 = 00
+<4>HDMIFireAFE:reg[61] = 00HDMIFireAFE:reg[62] = 19 HDMIFireAFE:reg[63] = 01 HDMIFireAFE:reg[64] = 1E HDMIFireAFE:reg[65] = 00
+<4>===== HDMI removed =====
+
+
+$ adb shell dmesg | grep -i lcd
+<7>Registered led device: lcd-backlight
+<7>emxx_lcdhw: init_lcdhw: 
+<7>emxx_lcdhw: lcd_module_hw_power_on: 
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x03) ->param(0x01)
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x00) ->param(0x00)
+[...]
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x9c) ->param(0x00)
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x9d) ->param(0x00)
+<7>emxx_lcdhw: lcd_hw_init: 
+<7>emxx_lcdhw: change_pinsel_wvga: SMU_LCDLCLKDIV = 0x00000009
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PINSEL_G000 = 0xff0bffeb
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PINSEL_G032 = 0x20020000
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_LCD_ENABLE = 0x00000001
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PINSEL_LCD3 = 0x00000000
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL2 = 0x00000000
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL4 = 0x0dc04ddc
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL5 = 0xdddddddd
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL2 = 0x44444400
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL4 = 0x0dc44ddc
+<7>emxx_lcdhw: change_pinsel_wvga: CHG_PULL5 = 0xdddddddd
+<7>emxx_lcdhw: lcd_controller_hw_init: 
+<7>emxx_lcdhw: lcd_hw_int_factor_clr: 
+<7>emxx_lcdhw: lcd_hw_int_disable: 
+<7>emxx_lcdhw: lcd_hw_int_enable: 
+<7>emxx_lcdhw: lcd_controller_hw_init_lcdsize: 
+<7>emxx_lcdhw: imc_hw_init: 
+<7>emxx_lcdhw: imc_hw_init_preset_gamma: 
+<7>emxx_lcdhw: imc_hw_init_preset_yuv: 
+<7>emxx_lcdhw: imc_hw_init_preset_burst: 
+<7>emxx_lcdhw: imc_hw_init_vsync_wb: 
+<7>emxx_lcdhw: imc_hw_init_vsync_alphasel: 
+<7>emxx_lcdhw: imc_hw_set_update_vsync: in
+<7>emxx_lcdhw: imc_hw_init_reserve_l0: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l1a: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l1b: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l1c: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l2a: 
+<7>emxx_lcdhw: imc_hw_init_reserve_l2b: 
+<7>emxx_lcdhw: imc_hw_init_reserve_bg: 
+<7>emxx_lcdhw: lcd_hw_start: 
+<7>emxx_lcdhw: lcd_module_hw_wakeup: 
+
+ - - - - - -
+
+My display is a Samsung LE32R51B TV, which should accept both 720P and 1080I mode HDMI input.
+
+As I can see something on my display, altough not locking the image and sometime showing a "non supported mode" message, it might be that is my display which is not supporting the HDMI output set by the device.
+
+Need to check how the EMXX_FB_OUTPUT_MODE_HDMI_720P maps to the IT6610 driver...
+
+This is what I can see from the init call in drivers/video/emxx/emxx_it6610.c:
+
+ HDMITX_ChangeDisplayOption(HDMI_720p50, HDMI_RGB444) ; 
+
+ 	case HDMI_720p50:
+		VIC = 19 ;
+		VideoPixelClock = 74250000 ;
+		pixelrep = 0 ;
+		aspec = HDMI_16x9 ;
+		Colorimetry = HDMI_ITU709 ;
+		break ;
+
+  - - - - -
+
+The lcd hw driver logs shows the same messages as without HDMI plugged in.
+
+From the following code, in drivers/video/emxx/emxx_lcdhw.c
+
+int change_output(enum EMXX_FB_OUTPUT_MODE old_mode,
+ enum EMXX_FB_OUTPUT_MODE new_mode)
+{
+   [...]
+	case EMXX_FB_OUTPUT_MODE_LCD:
+		/* WVGA LCD */
+		change_pinsel_wvga();
+		break;
+	case EMXX_FB_OUTPUT_MODE_HDMI_1080I:
+	case EMXX_FB_OUTPUT_MODE_HDMI_720P:
+		/* HDMI */
+		change_pinsel_hdmi();
+
+
+change_pinsel_wvga() is called, not change_pinsel_hdmi()...
+
+Why?
+
+ - - - - - 
+
+Looks like output mode (LCD vs. HDMI) is controlled from within drivers/video/emxx/emxx_fb.c 
+
+Except for ioctl control functions (for user-mode switching), the only place setting out mode is on driver init (default to LCD mode):
+
+---------------
+static int __devinit emxx_fb_probe(struct platform_device *dev)
+{
+...
+		/* output mode initialize */
+		par->output_mode = EMXX_FB_OUTPUT_MODE_LCD; 
+---------------
+
+as well as from the "raw notification" structure below:
+
+---------------
+extern int register_hdmi_notifier(struct notifier_block*);
+extern int unregister_hdmi_notifier(struct notifier_block*);
+static void hdmi_output_setup(struct notifier_block *, unsigned long , void *);
+static struct notifier_block hdmi_detect_notifier =
+{
+    .notifier_call = hdmi_output_setup,
+};
+
+...
+
+static void hdmi_output_setup(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	int i;
+	for (i = 0; i < EMXX_FB_DEVICES; i++) {
+		printk_info("hdmi_output_setup - dev %d - mode %d", i, event);
+		struct fb_info *info = drvdata.info[i];
+		info->var.reserved[0] = event;
+	}
+}
+---------------
+
+where the notifier "should" be called from within drivers/video/emxx/it6610/cat6611_sys.c:
+
+   printk("\n===== HDMI inserted =====\n");
+   hdmi_notifier_call_chain(EMXX_FB_OUTPUT_MODE_HDMI_720P, NULL);
+
+As I can see "HDMI inserted" in my log, so I also expect mode being set correspondingly...
+
+Following the code in kernel, sounds like EMXX_FB_OUTPUT_MODE_HDMI_720P gets stored info->var.reserved[0].
+
+ - - - - - -
+
+ 14 Feb 14
+
+From logs:
+
+On startup with HDMI plugged in:
+
+<4>===== HDMI inserted =====
+<6>emxx_fb: hdmi_output_setup - dev 0 - mode 2
+
+Later, when unplugging HDMI:
+
+<4>===== HDMI removed =====
+<6>emxx_fb: hdmi_output_setup - dev 0 - mode 0
+
+So, looks like when HDMI is selected, out mode is properly set to HDMI_720P
+
+But, I don't understand yet why I can't see the call to change_pinsel_hdmi() from change_output() 
+
+ - - - - - -  
+
+ 18 Feb
+ 
+Actually, in logs I can only see the "init" part, whch defaults to LCD output, not HDMI.
+
+I never meet the call to change_output()...
+
+ - - - - - -
+
+Comparing driver/video/emxx with the one from the Smallart Dongle kernel (/media/u02/RenesasEV2/Smallart/kernel_dongle/kernel_uhost/drivers/video/emxx).
+
+Three main differences I can see:
+
+1) The LCD module and HW init functions are found in different places
+2) The suspend/resume functions are different
+3) In Smallart there is an additional control over HDMI "size" (percent)
+
+Trying changes #1 first of all: I can only see a quick flash and then nothing on LCD!
+
+Need to debug with a serial cable...
+
+ - - - - - -
+
+Rolling back above changes, then copying the entire drivers/video/emxx from Smallart kernel...
+
+(original dir saved in drivers/video/emxx_orig)
+
+Note how also these files need an update:
+
+ ./arch/arm/mach-emxx/include/mach/fbcommon.h
+ ./arch/arm/mach-emxx/include/mach/hardware.h
+ ./arch/arm/mach-emxx/include/mach/gpio.h
+
+Also a new config param is introduced:
+
+    EMXX Copybit Premultiplied alpha support (FB_EMXX_COPYBIT_PREMULTI) [Y/n] (NEW) 
+
+Built and tested --- can't boot up!
+
+Need to debug with a serial cable...
+
+ - - - - -
+
+Getting back to the Livall version.
+
+I'm suspecting that (since the kernel driver structure is EXTREMELY similar) some user-level action is performed on the Smallart dongle, to switch to HDMI mode through ioctl functions and call change_output() with the hdmi mode. 
+
+ - - - - -
+
+ 19 Feb
+
+Comparing with Smallart emxx_fb_open() and emxx_fb_probe() functions, I noticed differences with respect to how lcd is initialized.
+
+Moving init_lcdhw() from open to probe (as in Smallart).
+
+Building & testing... but it makes no difference...
+
+  - - - - -
+
+Need to find a way to trigger ioctl call to emxx_fb_ioc_set_output() ...
+
+Creating a command exec to get and set mode, in /media/u02/RenesasEV2/fb_ioctl, accessing "/dev/fb/0" ioctl device.
+
+(following suggestions from http://www.linuxforu.com/2011/08/io-control-in-linux/)
+
+  - - - - -
+
+ 20 Feb
+
+Executing the app:
+
+> fb_ioctl -s
+Enter Framebuffer Output Mode: 1
+
+I managed to force the switch to HDMI mode:
+
+---------
+emxx_lcdhw: change_output: change_output old_mode: 0, new_mode: 1
+HDMI output mode, lcd backlight off.
+emxxlfb: EMXXLFBFlip: Device 0: fb_set_var failed (Y Offset: 2592, Error: -12)
+emxxlfb: EMXXLFBFlip: Device 0: fb_set_var failed (Y Offset: 2592, Error: -12)
+emxxlfb: EMXXLFBFlip: Device 0: fb_set_var failed (Y Offset: 2592, Error: -12)
+...
+---------
+
+(Errors could be that I made it with the device already up and running... not sure).
+
+Note how such a switch using ioctl is found in the gralloc lib: device/renesas/emev/libgralloc/framebuffer.cpp:
+
+int mapFrameBufferLocked(struct private_module_t* module)
+{
+ ...
+    struct fb_fix_screeninfo finfo;
+    if (ioctl(fd, FBIOGET_FSCREENINFO, &finfo) == -1) {
+        LOGE("mapFrameBufferLocked - FBIOGET_FSCREENINFO error");
+        return -errno;
+    }
+    /* Switch to the HDMI output mode */
+    if(finfo.reserved[0] == 1){
+	LOGI("Calling checkandsetHDMI...");
+	checkandsetHDMI(fd);
+    }
+ ...
+
+Then, checkandsetHDMI() sets the output mode to EMXX_FB_OUTPUT_MODE_HDMI_720P.
+
+All depending on the value found in reserved[0], which seems like using the info passed by kernel here:
+
+ 	for (i = 0; i < EMXX_FB_DEVICES; i++) {
+                printk_info("hdmi_output_setup - dev %d - mode %d", i, event);
+		struct fb_info *info = drvdata.info[i];
+		info->var.reserved[0] = event;
+	}
+
+but from dmesg I can see that event = 2 (which is EMXX_FB_OUTPUT_MODE_HDMI_720P), while check above is expecting 1 !!!!
+
+Fixing framebuffer.cpp, replacing if(finfo.reserved[0] == 1) with if(finfo.reserved[0] != 0)
+
+NOTE - HDMI mode shouldn't be hardcoded to 720P.
+
+ - - - - -
+
+ 21 Feb
+
+Issue is that rebuilding this libgralloc code and pushing it on device
+
+ adb push out/target/product/emev/symbols/system/lib/hw/gralloc.emxx.so system/vendor/lib/hw/gralloc.emxx.so
+
+it crashes on boot (/system/bin/surfaceflinger)! 
+
+In fact, this code makes the grallox.emxx.so, which I have it prebuilt (device/renesas/emev/sgx/um/system/vend
+or/lib/hw/gralloc.emxx.so).
+
+So, I have to guess a fix on kernel side, maybe trying to pass 1 into finfo.reserved[0], assuming that's the value being checked in the pre-built lib.
+
+ - - - - - 
+
+Forcing info->var.reserved[0] = 1 in kernel didn't change results: HDMI display isn't shown correctly yet.
+
+ - - - - -
+
+Now looking at source code of the gralloc lib, under
+
+ /media/u02/RenesasEV2/SGX_1.8/SGX1.8_EMEV_JB
+
+(See compile_um.sh, for the compilation of user-modules).
+
+ eurasia/eurasiacon/android/graphicshal/framebuffer.c
+
+but over there I can't find any reference to HDMI, as opposite to framebuffer.cpp above...
+
+ - - - - -
+
+ 24 Feb
+
+Checking first of all whether the recompiled SGX_1.8 modules work... yes!
+
+So, I do have emxx.gralloc.so source code ... Need to compare these two:
+
+ /media/u02/RenesasEV2/SGX_1.8/SGX1.8_EMEV_JB/eurasia/eurasiacon/android/graphicshal/framebuffer.c
+ /media/u02/RenesasEV2/jb/device/renesas/emev/libgralloc/framebuffer.cpp
+
+To see if and where I should add HDMI handling into framebuffer.c ...
+
+Modified framebuffer_device_open(), after the call to ioctl FBIOGET_VSCREENINFO.
+
+ - - - - -
+
+Started again with HDMI TV plugged in, after the rebuilt SGX libs have been installed (as above).
+
+Now I can see the LCD going off and TV screen showing some image, with both colour and resolution totally off. It isn't usable yet like this.
+
+In logcat I can see the check of HDMI mode and setting it correspondingly:
+
+I/IMGSRV  (  253): framebuffer.c:659: framebuffer_device_open: Checking output mode: 2
+I/IMGSRV  (  253): framebuffer.c:661: framebuffer_device_open: Calling checkandsetHDMI
+I/IMGSRV  (  253): framebuffer.c:568: checkandsetHDMI: **TPfb: ioctl EMXX_FB_UPDATE_SCRN...
+
+(should be different here: like 2).
+
+In dmesg the call to HDMI setting mode is shown:
+
+ emxx_lcdhw: change_output: change_output old_mode: 0, new_mode: 2
+
+while later I can also see many errors like 
+
+<6>emxxlfb: EMXXLFBFlip: Device 0: fb_set_var failed (Y Offset: 2592, Error: -12)
+<6>emxxlfb: EMXXLFBFlip: Device 0: fb_set_var failed (Y Offset: 2592, Error: -12)
+<6>emxxlfb: EMXXLFBFlip: Device 0: fb_set_var failed (Y Offset: 2592, Error: -12)
+...
+
+ - - - - - 
+
+On HDMI driver init, in dmesg I can read:
+
+<4>HDMIEnableVideoOutput:EnableVideoOutput()
+<6>android_usb gadget: high speed config #1: android
+<4>HDMISetInputMode:SetInputColorMode(10, 00)
+<4>HDMISetCSCScale:Input mode is RGB444
+<4>HDMISetCSCScale:Output mode is YUV444
+<4>HDMISetCSCScale:CSC = RGB2YUV 2 HDMISetCSCScale:ITU709 0-255 HDMISetupAFE:SetupAFE()
+
+while on the logcat I can read these possible modes:
+
+I/IMGSRV  (   72): hal.c:509: RegisterBufferFormat: Registered buffer format BGRA_8888
+I/IMGSRV  (   72): hal.c:509: RegisterBufferFormat: Registered buffer format RGBA_8888
+I/IMGSRV  (   72): hal.c:509: RegisterBufferFormat: Registered buffer format BGRX_8888
+I/IMGSRV  (   72): hal.c:509: RegisterBufferFormat: Registered buffer format RGBX_8888
+I/IMGSRV  (   72): hal.c:509: RegisterBufferFormat: Registered buffer format RGB_565
+I/IMGSRV  (   72): hal.c:509: RegisterBufferFormat: Registered buffer format YV12
+...
+W/IMGSRV  (  283): gralloc.c:529: DumpMapInfo: Mapped a new surface:
+W/IMGSRV  (  283):       width -> 800
+W/IMGSRV  (  283):      height -> 480
+W/IMGSRV  (  283):      format -> 5 (HAL_PIXEL_FORMAT_BGRA_8888)
+
+The HAL driver only allows 888 color modes.
+
+The HDMI cat66110.sys driver only defines a 444 RGB input mode... How to match these two?
+
+Probably just trying the F_MODE_RGB444 for output, in place of YUV444?
+
+ - - - - - -
+
+ 25 Feb
+
+Sent email to Jau-Chih.Tseng@ite.com.tw (ITE manager, mail found in driver code), who said the 8888 is equivalent to definition “444”.
+
+Issue is then probably in the HAL layer, where something else other than the color mode is not correct... I should investigate more on that.
+
+ - - - - -
+ 
+ 27 Feb
+
+Added a call to EMXX_FB_SET_OUTPUT ioctl for setting HDMI mode inside SGX code ./eurasia/eurasiacon/android/graphicshal/framebuffer.c, in framebuffer_device_open(), similar to the code found in example device/renesas/emev/libgralloc/framebuffer.cpp.
+
+When using LCD, I get from debug messages from EMXXLFBInitFBDev() in emxxlfb_displaycall.c:
+
+<6>emxxlfb: Device 0: Framebuffer physical address: 0x4ab00000
+<6>emxxlfb: Device 0: Framebuffer virtual address: 0xe1000000
+<6>emxxlfb: Device 0: Framebuffer size: 16588800
+<6>emxxlfb: Device 0: Framebuffer virtual width: 800
+<6>emxxlfb: Device 0: Framebuffer virtual height: 5184
+<6>emxxlfb: Device 0: Framebuffer width: 800
+<6>emxxlfb: Device 0: Framebuffer height: 480
+<6>emxxlfb: Device 0: Framebuffer stride: 3200
+<6>emxxlfb: Device 0: LCM of stride and page size: 102400
+<6>emxxlfb: Device 0: rounded buffer size: 8294400
+<6>emxxlfb: Device 0: pixel format: 20
+<6>emxxlfb: Device 0: Maximum number of swap chain buffers: 2
+<6>emxxlfb: Device 0: PVR Device ID: 1
+
+ - - - - - -
+
+With the HDMI TV plugged in, I get debug messages from EMXXLFBInitFBDev(), from emxxlfb module, but only later I see the change_output() changing kernel driver resoution to 720P, as per the ioctl call to SET_OUTPUT, in checkandsetHDMI():
+
+<6>PVR: PVRSRVDriverProbe(pDevice=bf06ee50)
+<6>PVR: EnableSystemClocks: Enabling System Clocks
+<6>PVR: PVRCore_Init: major device 249
+<7>emxx_lcdhw: init_lcdhw: 
+...
+<7>emxx_lcdhw: lcd_hw_start: 
+<7>emxx_lcdhw: lcd_module_hw_wakeup: 
+<7>emxx_lcdhw: lcd_module_hw_spiw: ->cmd(0x02) ->param(0x00)
+<7>emxx_lcdhw: lcd_hw_backlight_on: 
+<4>==>>hdmi irq 0 
+<6>emxxlfb: Framebuffer Screen mode: 2
+<6>emxxlfb: Device 0: Framebuffer physical address: 0x4ab00000
+<6>emxxlfb: Device 0: Framebuffer virtual address: 0xe1000000
+<6>emxxlfb: Device 0: Framebuffer size: 16588800
+<6>emxxlfb: Device 0: Framebuffer virtual width: 800
+<6>emxxlfb: Device 0: Framebuffer virtual height: 5184
+<6>emxxlfb: Device 0: Framebuffer width: 800
+<6>emxxlfb: Device 0: Framebuffer height: 480
+<6>emxxlfb: Device 0: Framebuffer stride: 3200
+<6>emxxlfb: Device 0: LCM of stride and page size: 102400
+<6>emxxlfb: Device 0: rounded buffer size: 8294400
+<6>emxxlfb: Device 0: pixel format: 20
+<7>emxx_fb: emxx_fb_callback: fb(0) status(0) from(0)
+<6>emxxlfb: Device 0: Maximum number of swap chain buffers: 2
+<6>emxxlfb: Device 0: PVR Device ID: 1
+<6>PVR: Installing MISR with cookie bf07200c
+<6>PVR: Installing device LISR SGX ISR on IRQ 62 with cookie c94a22c0
+<6>PVR: OSUnMapPhysToLin: unmapping 16384 bytes from e2378000
+<6>PVR_K:(Warning): SysFinalise: Version string: SGX revision = 1.2.0 [442, services4/system/emev/sysconfig.c]
+<4>emxx-mixer: codec_power_on
+<4>HDMICheckHDMITX:INT_Handler: reg06 = 00
+<4>HDMICheckHDMITX:INT_Handler: reg07 = 00
+<4>HDMIFireAFE:reg[61] = 00HDMIFireAFE:reg[62] = 19 HDMIFireAFE:reg[63] = 01 HDMIFireAFE:reg[64] = 1E HDMIFireAFE:reg[65] = 00
+<7>emxx_fb: emxx_fb_ioc_set_output: <start>
+<7>emxx_fb: emxx_fb_ioc_set_output: set_output to 2
+<7>emxx_fb: set_lcd_var: <start>
+<7>emxx_fb: set_lcd_var: setting OUTPUT_MODE_HDMI_720P
+<7>emxx_fb: set_lcd_var: < end >
+<7>emxx_fb: set_lcd_size: <start>
+<7>emxx_fb: set_lcd_size: setting OUTPUT_MODE_HDMI_720P
+<7>emxx_fb: set_lcd_size: < end >
+
+Issue is that resolution is set to 720P too late, i.e. first emxxlfb is loaded with 800x480 resolution, then SET_OUTPUT switches to HDMI-720P mode, but emxxlfb isn't re-loaded and that's inconsistent.
+
+I should find a way to revert the order two calls...
+
+1) emxxlfb.ko is loaded by init.emxx.rc, through the call to "pvrsrvctl -init" in init.emev.sh
+
+2) emxx_fb_ioc_set_output is called within the Android HAL init stages, by surfaceflinger, I think...
+
+ - - - - -
+
+Found something about re-initing PVR modules in:
+ 
+ http://processors.wiki.ti.com/index.php/SGXDbg
+
+ - - - - - 
+
+ 6 Mar
+
+Moving this section:
+
+service emev-setup /system/etc/init.emev.sh
+    class core
+    user root
+    group root
+    oneshot
+
+out of init.emxx.rc, back into init.rc, after surfaceflinger service setup.
+
+Testing... had no effect: I still find emxx_fb_ioc_set_output following emxxlfb loading.
+
+So, maybe, graphics HAL is not loaded by surfaceflinger service, but AFTER the init has completed.
+
+ - - - - -
+
+ 7 Mar
+
+Investigating about putting the resolution setting in EMXXLFBInitFBDev():
+
+ ./eurasia_km/services4/3rdparty/dc_emxxfb_linux/emxxlfb_displayclass.c
+
+I added this fragment, immediately before the call to fb_open():
+
+        enum EMXX_FB_OUTPUT_MODE output;
+...
+        if (psLINFBInfo->var.reserved[0] != 0) {
+                /* Display isn't LCD, so need to trigger kernel module resetting resolution 
+                   even before fb_open is called */
+                output = EMXX_FB_OUTPUT_MODE_HDMI_720P; /* should we get this from info.reserved[0] ? */
+	        if(psLINFBInfo->fbops->fb_ioctl(psLINFBInfo, EMXX_FB_SET_OUTPUT, 
+                                                (long unsigned int)(&output))){
+			printk(KERN_INFO DRIVER_PREFIX
+				": %s: EMXX_FB_SET_OUTPUT (output = %d) failed\n", __FUNCTION__, output);
+	        	goto ErrorRelSem;
+		}
+        }
+
+and removed the call to EMXX_FB_SET_OUTPUT ioctl (checkandsetHDMI) from framebuffer.c.
+
+Testing with LCD is OK. 
+
+Need to test with HDMI...
+
+ - - - - - - 
+
+ 24 Mar
+
+Testing with HDMI:
+
+<6>PVR: PVRCore_Init
+...
+<6>PVR: PVRSRVDriverProbe(pDevice=bf06ee50)
+<6>PVR: EnableSystemClocks: Enabling System Clocks
+<6>PVR: PVRCore_Init: major device 249
+<6>emxxlfb: Framebuffer screen mode: 2
+<6>emxxlfb: EMXXLFBInitFBDev: EMXX_FB_SET_OUTPUT (output = 2) failed
+<4>emxxlfb: EMXXLFB_Init: EMXXLFBInit failed
+<6>PVR_K:(Error): BridgedDispatchKM: Driver initialisation not completed yet. [5090, services4/srvkm/bridged/bridged_pvr_brid
+
+IOCTL call fails!
+
+  - - - - - -
+
+Then, I tried a different apporach: moving the set_output into kernel code, early within the emxx_fb_open function:
+
+static int emxx_fb_open(struct fb_info *info, int user)
+{
+      ...
+		/* If in HDMI mode, first set paramaters accordingly */
+		printk(KERN_INFO "emxx_fb_open: output mode is %u\n", info->var.reserved[0]);
+		if (info->var.reserved[0] != 0) {
+			ret = emxx_fb_set_output(info, info->var.reserved[0]);
+			if (ret) return ret;
+		}
+
+This at least allowed to get the proper resolution to the emxxlfb module: 
+
+...
+emxxlfb: Framebuffer screen mode: 2
+emxx_fb_open: output mode is 2
+emxx_fb_set_output to 2
+==>>hdmi irq 0 
+emxxlfb: Device 0: Framebuffer physical address: 0x4ab00000
+emxx_lcdhw: change_output: change_output old_mode: 0, new_mode: 2
+emxxlfb: Device 0: Framebuffer virtual address: 0xe1000000
+emxxlfb: Device 0: Framebuffer size: 16588800
+emxxlfb: Device 0: Framebuffer virtual width: 1280
+emxxlfb: Device 0: Framebuffer virtual height: 3240
+emxxlfb: Device 0: Framebuffer width: 1280
+emxxlfb: Device 0: Framebuffer height: 720
+emxxlfb: Device 0: Framebuffer stride: 5120
+emxxlfb: Device 0: LCM of stride and page size: 20480
+emxxlfb: Device 0: rounded buffer size: 8294400
+emxxlfb: Device 0: pixel format: 20
+HDMI output mode, lcd backlight off.
+...
+
+Issue is that visualization is not correct, at least on my TV screen. 
+
+Android home overflows the screen borders and colors are wrong. Image is also sometimes unstable.
+
+ - - - - - 
+
+ NOTE 
+
+Kernel changes are stored under git branch emev-4.1-hdmi.
+
+I have moved the rebuilt SGX modules under $AOSP/device/renesas/emev/sgx folder, under git branch emev-4.1-hdmi.
+
+The $AOSP/device/renesas/emev/sgx/SGX_1.8_KM/eurasia_km includes the SGX kernel modules source code, under a git sub-project and branch emev-4.1-hdmi as well.
+
+ - - - - - 
+
+ 21 Mar
+
+EUREKA! There was a critical difference (with respect to Smallart dongle kernel), that I had to backport.
+
+Within lcd_hw_init() and change_output(), a call to change_pinsel_hdmi() had to be replaced with a call to change_pinsel_wvga(), even in case of the HDMI output types.
+
+Probably the change_pinsel_hdmi() applies to boards with a different HDMI chipset, not the IT6610 (e.g. the ADV7523, used in the evaluation board).
+
+Now I get a proper image on my TV!
+
+ - - - - -
+
+Since my TV doesn't fit the full 720 pixels (it apparently has a few less!) I have to hardcode the 95% size reduction, or control the same through ioctl (as in Smallart kernel, having the "size" option).
+
+
+ - - - - -
+
+ 31 Mar
+ 
+Applying changes from Smallart kernel about the "size" option.
+
+Also applied a fix about "LCD underrun" (workaround to a SoC HW bug, making the screen black intermittently, on medium CPU loads).
+
+Needs validation (on HDMI output)...
+
+ - - - - -
+
+ 3 Apr
+
+Should also verify if the logic (in AOSP JB code) checking for hdmi, in 
+
+ frameworks/base/policy/src/com/android/internal/policy/impl/PhoneWindowManager.java
+
+based upon reading the switch at /sys/class/switch/hdmi/state, works fine.
+
+This should enable the "HDMI Display" settings menu (I think).
+
+Our kernel doesn't allocate such a switch... This is an example how it is allocated:
+ 
+ https://github.com/defer/semc-kernel-msm8x60/commit/547110e9d048fd0a7c34d0ad305a240a080bfe4f
+
+But I'm afraid the code handling the HDMI video settings (resolution) is missing in AOSP.
+
+Will have to work on this ...
+
+ - - - - -
+
+Another nice thing to have is the sound output disabled on device in HDMI mode. 
+
+I've put a patch in sound/arm/emxx-mixer.c 
+
+static int codec_power_on(void)
+{
+   ...
+	/* Mute speakers (not Headphone) in case of HDMI output */
+	if (HDMI_OUTPUT_MODE == EMXX_FB_OUTPUT_MODE_HDMI_720P) {
+		res = CODEC_WRITE_M(RT5621_SPK_OUT_VOL, RT_L_MUTE | RT_R_MUTE, RT_L_MUTE | RT_R_MUTE);
+
+to be tested ...
+
+
+
+
