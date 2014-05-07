@@ -832,8 +832,37 @@ static int codec_power_on(void)
 	if (HDMI_OUTPUT_MODE == EMXX_FB_OUTPUT_MODE_HDMI_720P) {
 		res = CODEC_WRITE_M(RT5621_SPK_OUT_VOL, RT_L_MUTE | RT_R_MUTE, RT_L_MUTE | RT_R_MUTE);
 
-to be tested ...
+But seems not working, as I can still hear audio through speakers... need to debug (though not urgent).
 
+ - - - - -
 
+I also recompiled "fb_ioctl" test app, so to control fb size using "-ss" (0=100,1=95,90,85%)
 
+But 95, 90 and 85% actually crop the screeen right and lower parts, so the only usable one is 100%.
+
+ - - - - -
+
+ 14 Apr 
+
+Added handling of hdmi switch node /sys/class/switch/hdmi/state in kernel, in drivers/video/emxx/emxx_fb.c
+
+This is used by AOSP in
+
+ frameworks/base/policy/src/com/android/internal/policy/impl/PhoneWindowManager.java 
+
+Kernel compiled fine. Testing...
+
+ 15 Apr
+
+On LCD mode:
+
+root@android:/ # cat /sys/class/switch/hdmi/state
+0
+
+On HDMI mode:
+
+root@android:/ # cat /sys/class/switch/hdmi/state
+2
+
+but I can't notice any effect, at first glance, on Android UI... Need to investigate more on that.
 
