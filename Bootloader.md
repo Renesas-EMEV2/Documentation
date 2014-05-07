@@ -203,6 +203,7 @@ Preparing an SD card for device firmware update
 
 An example script to prepare an SD card for a firmware update is given:
 
+	export CROSS_COMPILE=arm-eabi-
 	fwupd/fwupd.sh <destination>
 
 which will generate all bootlaoder binaries and move files to destination path, which should be the SD card root dir.
@@ -238,6 +239,7 @@ The following command builds the bootloader as per point 3 above:
 
 The complete script to prepare the SD card for booting up to Android is:
 
+	export CROSS_COMPILE=arm-eabi-
 	testsd/testsd.sh /dev/sdd  (where "/dev/sdd" is the mount point of the SD on the host)
 
 including the uboot make, SD partitioning and creation steps.
