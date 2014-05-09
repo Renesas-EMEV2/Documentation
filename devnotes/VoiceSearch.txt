@@ -135,3 +135,19 @@ I/MediaPlayerJNI(   72): JNI_OnLoad functions registered
 So I don't understand why, when java requires "fir21" from ResampleInputStream JNI, it can't find it.
 
 Naming should be correct, I guess... (this is all OOB AOSP code).
+
+ - - - - -
+
+ 9 May 2014
+
+I found out the issue was due to an incomplete setup of the Google Apps collection.
+
+Uploading into device/renesas/emev/gapps the complete package (4.1.2 - 20121011) from:
+
+ http://wiki.rootzwiki.com/Google_Apps
+ 
+As a side effect, I had to re-format partioning scheme, allowing 500 MB (instead of 256 Mb) to the android system partition.
+
+I did this by using the install3.sh setup script in the SD card , by renaming it to install.sh and removing ff4 from the same (so that the flashing procedure wil use the script in place of the interactive program).
+
+
