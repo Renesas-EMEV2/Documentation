@@ -72,7 +72,6 @@ I/AwesomePlayer( 1164): initRenderer_l - Local renderer
 
 Note as fallback software AAC audio decoder is used, as HW one fails, but playback doesn't crash.
 
-
 Error video playback (e.g. "RAI Live"):
 
 V/ChromiumHTTPDataSource( 1164): connect on behalf of uid 10063
@@ -166,6 +165,479 @@ We might understand what's the missing OMX "index" feature, enabling debug loggi
  frameworks/av/media/libstagefright/omx/OMXNodeInstance.cpp
 
 though there's little hope to fix the error, without a HW driver upgrade...
+
+ - - - - -
+
+ 10 Jun 2014
+
+Enabling debug in 
+
+   frameworks/av/media/libstagefright/OMXCodec.cpp
+   frameworks/av/media/libstagefright/ACodec.cpp
+   frameworks/av/media/libstagefright/omx/OMXNodeInstance.cpp
+
+YouTube works just fine... ( no "live" test).
+
+ - - - - -
+
+RaiTV App test
+
+Below when the successful Advertizing video starts:
+
+E/WVMExtractor( 1766): Failed to open libwvm.so
+I/SampleTable( 1766): There are reordered frames present.
+I/AwesomePlayer( 1766): initVideoDecoder flags=0x0
+I/EV2OMXPlugin( 1766): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+I/OMXCodec( 1766): [OMX.RENESAS.VIDEO.DECODER.H264] AVC profile = 77 (Main), level = 31
+I/OMXCodec( 1766): [OMX.RENESAS.VIDEO.DECODER.H264] video dimensions are 720 x 404
+I/AwesomePlayer( 1766): initVideoDecoder - component: OMX.RENESAS.VIDEO.DECODER.H264
+D/dalvikvm(  260): WAIT_FOR_CONCURRENT_GC blocked 0ms
+D/dalvikvm(  260): GC_EXPLICIT freed 963K, 23% free 10249K/13191K, paused 6ms+16ms, total 127ms
+V/MediaPlayerJNI( 1564): getVideoWidth: 720
+V/MediaPlayerJNI( 1564): getVideoHeight: 404
+D/MediaPlayer( 1564): getMetadata
+V/MediaPlayerJNI( 1564): getDuration: 30047 (msec)
+V/MediaPlayerJNI( 1564): start
+V/MediaPlayerJNI( 1564): getVideoWidth: 720
+V/MediaPlayerJNI( 1564): getVideoHeight: 404
+...
+
+Then, when it should play the actual video (from "Rai Replay"), it crashes:
+
+...
+I/avc_utils(   74): found AVC codec config (700 x 394, Main-profile level 3.1)
+I/ESQueue (   74): found AAC codec config (44100 Hz, 2 channels)
+V/ACodec  (   74): Now uninitialized
+V/ACodec  (   74): onAllocateComponent
+V/ACodec  (   74): Now uninitialized
+I/EV2OMXPlugin(   74): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+V/ACodec  (   74): onAllocateComponent
+V/ACodec  (   74): [OMX.google.aac.decoder] Now Loaded
+V/ACodec  (   74): onConfigureComponent
+E/OMXNodeInstance(   74): OMX_GetExtensionIndex failed
+...
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] Now Loaded
+V/ACodec  (   74): onConfigureComponent
+E/OMXNodeInstance(   74): OMX_GetExtensionIndex failed
+F/ACodec  (   74): frameworks/av/media/libstagefright/ACodec.cpp:3104 CHECK_EQ( (status_t)OK,mCodec->initNativeWindow()) failed: 0 vs. -2147483648
+F/libc    (   74): Fatal signal 11 (SIGSEGV) at 0xdeadbaad (code=1), thread 1443 (NuPlayerDecoder)
+...
+I/DEBUG   (   70): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+I/DEBUG   (   70): Build fingerprint: 'emxx/renesas_emev/emev:4.1.1/JRO03L/eng.ffxx68.20130710.064436:eng/test-keys'
+I/DEBUG   (   70): pid: 74, tid: 1443, name: NuPlayerDecoder  >>> /system/bin/mediaserver <<<
+I/DEBUG   (   70): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr deadbaad
+...
+I/DEBUG   (   70): backtrace:
+I/DEBUG   (   70):     #00  pc 000180ae  /system/lib/libc.so
+I/DEBUG   (   70):     #01  pc 0000dbd4  /system/lib/libc.so (abort+4)
+I/DEBUG   (   70):     #02  pc 00003f45  /system/lib/libcutils.so (__android_log_assert+88)
+I/DEBUG   (   70):     #03  pc 0004a325  /system/lib/libstagefright.so (android::ACodec::LoadedState::onConfigureComponent(android::sp<android::AMessage> const&)+64)
+...
+
+The "OMX_GetExtensionIndex failed" is the root of the issue and it means the "Index" correponding to 
+
+ "OMX.google.android.index.enableAndroidNativeBuffers"
+
+is not found in our OMX implementation (device/renesas/emev/omf/OMF_Extension.h). An example of such an implementation is found in device/samsung/crespo/sec_mm/sec_omx/sec_omx_include/sec/SEC_OMX_Def.h.
+
+Curiosly enough, after the crash, if I just restart the app, video playback succesfully continues from where it stopped:
+
+V/MediaPlayerJNI(  983): reset
+V/MediaPlayerJNI(  983): release
+...
+I/OMXMaster( 1525): Adding vendor plugin (libstagefrighthw)
+I/OMXMaster( 1525): after createOMXPlugin
+I/OMXMaster( 1525): after CreateOMXPluginFunc
+I/EV2OMXPlugin( 1525): ***OMFPlugin() libomf_manager.so dl open success !!!!!!!!
+...
+I/EV2OMXPlugin( 1525): ***run OMFPlugin init: ret: 0x00000000
+I/EV2OMXPlugin( 1525): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1525): adding plugin component 'OMX.RENESAS.AUDIO.DECODER.AAC'
+I/EV2OMXPlugin( 1525): ***run OMFPlugin ------- enumerateComponents !!!!!!!!
+I/OMXMaster( 1525): adding plugin component 'OMX.RENESAS.VIDEO.DECODER.H264'
+...
+I/SampleTable( 1832): There are reordered frames present.
+I/AwesomePlayer( 1832): initVideoDecoder flags=0x0
+I/EV2OMXPlugin( 1832): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+I/OMXCodec( 1832): [OMX.RENESAS.VIDEO.DECODER.H264] AVC profile = 77 (Main), level = 31
+I/OMXCodec( 1832): [OMX.RENESAS.VIDEO.DECODER.H264] video dimensions are 1024 x 576
+I/AwesomePlayer( 1832): initVideoDecoder - component: OMX.RENESAS.VIDEO.DECODER.H264
+V/MediaPlayerJNI( 1319): getVideoWidth: 1024
+V/MediaPlayerJNI( 1319): getVideoHeight: 576
+D/MediaPlayer( 1319): getMetadata
+V/MediaPlayerJNI( 1319): start
+V/MediaPlayerJNI( 1319): getVideoWidth: 1024
+V/MediaPlayerJNI( 1319): getVideoHeight: 576
+V/MediaPlayerJNI( 1319): start
+...
+I/AwesomePlayer( 1832): initRenderer_l - component: OMX.RENESAS.VIDEO.DECODER.H264
+I/AwesomePlayer( 1832): initRenderer_l - Local renderer
+V/MediaPlayerJNI( 1319): getCurrentPosition: 9920 (msec)
+V/MediaPlayerJNI( 1319): getDuration: 994023 (msec)
+V/MediaPlayerJNI( 1319): isPlaying: 1
+...
+
+The Player restart make the OMX library being reaload and so the "fresh" status won't bring to the exception.
+
+Looks like the OMX_GetExtensionIndex call is somewhat... redundant...
+
+Actually, in the success case, the "ACodec" isn't invoked at all (from logs at least).
+
+Why is it entering the ACodec part, that later fails? It should get into OMXCOdec instead...
+
+ - - - - 
+
+Enabling debug in the following:
+
+ frameworks/av/media/libmedia/mediaplayer.cpp
+ frameworks/av/media/libmediaplayerservice/MediaPlayerService.cpp
+ frameworks/base/media/jni/android_media_MediaPlayer.cpp
+
+the Player log pattern seems different when it fails:
+
+V/MediaPlayerJNI( 1354): setDataSource: path http://rai-i.akamaihd.net/i/20140609/tg1notte-090620140.30.00_REPLAY_,400,600,800,.mp4.csmil/master.m3u8
+V/MediaPlayer( 1354): setDataSource(http://rai-i.akamaihd.net/i/20140609/tg1notte-090620140.30.00_REPLAY_,400,600,800,.mp4.csmil/master.m3u8)
+V/MediaPlayerService(   75): Client(3) constructor
+V/MediaPlayerService(   75): Create new client(3) from pid 1354, uid 10064, 
+V/MediaPlayerService(   75): setDataSource(http://rai-i.akamaihd.net/i/20140609/tg1notte-090620140.30.00_REPLAY_,400,600,800,.mp4.csmil/master.m3u8)
+V/MediaPlayerService(   75): player type = 4
+V/MediaPlayerService(   75):  create NuPlayer
+...
+E/MediaPlayerService(   75): getMetadata failed -38
+...
+I/avc_utils( 1468): found AVC codec config (700 x 394, Main-profile level 3.1)
+I/ESQueue ( 1468): found AAC codec config (44100 Hz, 2 channels)
+V/ACodec  ( 1468): Now uninitialized
+...
+
+with respect to the success playback:
+
+V/MediaPlayerJNI( 1354): setDataSource: path http://d1oaxhr280l1ho.cloudfront.net/613/49_4613_2_1_Volvo_v40_giu_.mp4
+V/MediaPlayer( 1354): setDataSource(http://d1oaxhr280l1ho.cloudfront.net/613/49_4613_2_1_Volvo_v40_giu_.mp4)
+V/MediaPlayerService(   75): Client(2) constructor
+V/MediaPlayerService(   75): Create new client(2) from pid 1354, uid 10064, 
+V/MediaPlayerService(   75): setDataSource(http://d1oaxhr280l1ho.cloudfront.net/613/49_4613_2_1_Volvo_v40_giu_.mp4)
+V/MediaPlayerService(   75): player type = 3
+V/MediaPlayerService(   75):  create StagefrightPlayer
+...
+V/MediaPlayer( 1354): getVideoWidth
+V/MediaPlayerJNI( 1354): getVideoWidth: 720
+V/MediaPlayer( 1354): getVideoHeight
+V/MediaPlayerJNI( 1354): getVideoHeight: 404
+D/MediaPlayer( 1354): getMetadata
+V/MediaPlayer( 1354): getDuration
+V/MediaPlayerService(   75): getDuration
+V/MediaPlayerService(   75): [2] getDuration = 30047
+V/MediaPlayerJNI( 1354): getDuration: 30047 (msec)
+V/MediaPlayerJNI( 1354): start
+V/MediaPlayer( 1354): start
+...
+
+A critical difference I can see is that:
+
+Failing:
+
+V/MediaPlayerService(   75): setDataSource(http://rai-i.akamaihd.net/i/20140609/tg1notte-090620140.30.00_REPLAY_,400,600,800,.mp4.csmil/master.m3u8)
+V/MediaPlayerService(   75): player type = 4
+V/MediaPlayerService(   75):  create NuPlayer
+...
+
+Working:
+
+V/MediaPlayerService(   75): setDataSource(http://d1oaxhr280l1ho.cloudfront.net/613/49_4613_2_1_Volvo_v40_giu_.mp4)
+V/MediaPlayerService(   75): player type = 3
+V/MediaPlayerService(   75):  create StagefrightPlayer
+...
+
+The logic is about using the "NuPlayer" for the "m3u8" URLs:
+
+ frameworks/av/media/libmediaplayerservice/MediaPlayerService.cpp
+
+player_type getPlayerType(const char* url)
+{
+...
+        if (len >= 5 && !strcasecmp(".m3u8", &url[len - 5])) {
+            return NU_PLAYER;
+        }
+        if (strstr(url,"m3u8")) {
+            return NU_PLAYER;
+        }
+    }
+...
+    return getDefaultPlayerType();
+}
+
+Let me try forcing the default player for m3u8 URLs as well...
+
+It works for the "Rai Replay" videos, but it still fails to play the "Live" streaming:
+
+V/MediaPlayer( 1040): setDataSource(http://everyrai-lh.akamaihd.net/i/rai_1@177959/master.m3u8)
+V/MediaPlayerService(   74): Client(8) constructor
+V/MediaPlayerService(   74): Create new client(8) from pid 1040, uid 10064, 
+V/MediaPlayerService(   74): setDataSource(http://everyrai-lh.akamaihd.net/i/rai_1@177959/master.m3u8)
+V/MediaPlayerService(   74): player type = 3
+V/MediaPlayerService(   74):  create StagefrightPlayer
+...
+V/ChromiumHTTPDataSource(   74): connect on behalf of uid 10064
+I/ChromiumHTTPDataSource(   74): connect to http://everyrai-lh.akamaihd.net/i/rai_1@177959/master.m3u8 @0
+I/NuCachedSource2(   74): ERROR_END_OF_STREAM
+I/Nielsen ( 1040): Sended nielsen notification for section dirette
+E/WVMExtractor(   74): Failed to open libwvm.so
+V/MediaPlayerService(   74): [8] notify (0x2a027188, 100, 1, -2147483648)
+V/MediaPlayer( 1040): message received msg=100, ext1=1, ext2=-2147483648
+E/MediaPlayer( 1040): error (1, -2147483648)
+V/MediaPlayer( 1040): callback application
+V/MediaPlayer( 1040): back from callback
+E/MediaPlayer( 1040): Error (1,-2147483648)
+D/VideoView( 1040): Error: 1,-2147483648
+
+In the "Rai Replay" playback, after this error there's a re-direct to an mp4...
+
+D/CustomRedirectHandler( 1040): statusCode: 302
+D/RedirectTask( 1040): http://creativemedia2.rai.it/podcastmhp_world/replaytv_world/raiuno_world/notte_world/2663843_1800.mp4
+
+So looks like it's a matter of making the "NuPlayer" work... to watch Live streamings.
+
+Maybe we should understand why it's NuPLayer is invoking ACodec, in place of the OMXCodec...
+
+ Read this...
+
+http://freepine.blogspot.co.uk/2011/05/nuplayer-for-http-live-streaming.html
+
+ - - - - - -
+
+ 11 Jun
+
+Restored original logic in getPlayerType().
+
+Comparing the logic of ACodec vs. OMXCodec, around the initNativeWindow() part.
+
+Note how in initNativeWindow() is the one failing in ACodec, but succeding in 
+
+ACodec:
+-------
+
+bool ACodec::LoadedState::onConfigureComponent()
+...
+ status_t err = mCodec->configureCodec(mime.c_str(), msg);
+...
+     if (msg->findObject("native-window", &obj)
+            && strncmp("OMX.google.", mCodec->mComponentName.c_str(), 11))
+              {...
+              mCodec->mNativeWindow = nativeWindow->getNativeWindow();
+              ...}
+     CHECK_EQ((status_t)OK, mCodec->initNativeWindow());
+
+status_t ACodec::initNativeWindow() {
+
+    if (mNativeWindow != NULL) {
+        return mOMX->enableGraphicBuffers(mNode, kPortIndexOutput, OMX_TRUE);
+    }
+    mOMX->enableGraphicBuffers(mNode, kPortIndexOutput, OMX_FALSE);
+    return OK;
+}
+
+
+OMXCodec:
+---------
+
+status_t OMXCodec::configureCodec(const sp<MetaData> &meta) {
+...
+    if (mNativeWindow != NULL
+        && !mIsEncoder
+        && !strncasecmp(mMIME, "video/", 6)
+        && !strncmp(mComponentName, "OMX.", 4)) {
+        status_t err = initNativeWindow();
+        if (err != OK) {
+            return err;
+        }
+    }
+    return OK;
+}
+
+status_t OMXCodec::initNativeWindow() {
+    status_t err = mOMX->enableGraphicBuffers(mNode, kPortIndexOutput, OMX_TRUE);
+    if (err != 0) {
+        return err;
+    }
+    return OK;
+}
+
+
+ - - - - -
+
+ 12 Jun
+
+Adding check on OMX.RENESAS, not to call the InitNativeWindow logic in ACodec::onConfigureComponent:
+
+    if (msg->findObject("native-window", &obj)
+            && strncmp("OMX.google.", mCodec->mComponentName.c_str(), 11)
+	    && strncmp("OMX.RENESAS.", mCodec->mComponentName.c_str(), 12)) {
+
+This time isn't crashing anymore, but screen remains black on m3u8 playback, while audio goes on!
+
+Comparing logs for OMXCodec (mp4 - OK) vs ACodec (m3u8 - black) I can see similar calls repeating:
+
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocating 2 buffers of size 1048576 on input port
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocated buffer 0x2a04b020 on input port
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocated buffer 0x2a065ca8 on input port
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocating 5 buffers of size 3133440 on output port
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocated buffer 0x2a065dd0 on output port
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocated buffer 0x2a061de0 on output port
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocated buffer 0x2a061ec0 on output port
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocated buffer 0x2a061fc0 on output port
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocated buffer 0x2a0620a0 on output port
+...
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] EMPTY_BUFFER_DONE(buffer: 0x2a04b020)
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] Calling emptyBuffer on buffer 0x2a04b020 (length 18339), timestamp 40000 us (0.04 
+...
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] FILL_BUFFER_DONE(buffer: 0x2a065dd0, size: 449280, flags: 0x00000010, timestamp: 40000 us (0.04 secs))
+...
+
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] Now Loaded->Idle
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] Allocating 2 buffers of size 1048576 on input port
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] Allocating 5 buffers of size 3133440 on output port
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] Now Idle->Executing
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling fillBuffer 0x2a068970
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling fillBuffer 0x2a056fd0
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling fillBuffer 0x2a0570e8
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling fillBuffer 0x2a057228
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling fillBuffer 0x2a0572f8
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] Now Executing
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling emptyBuffer 0x2a054898 w/ codec specific data
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] onOMXEmptyBufferDone 0x2a054898
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling emptyBuffer 0x2a03cb88 w/ codec specific data
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling emptyBuffer 0x2a054898 w/ time 0 us
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] onOMXEmptyBufferDone 0x2a03cb88
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] onOMXEmptyBufferDone 0x2a054898
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling emptyBuffer 0x2a03cb88 w/ time 40000 us
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] onOMXEmptyBufferDone 0x2a03cb88
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling emptyBuffer 0x2a054898 w/ time 80000 us
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] calling emptyBuffer 0x2a03cb88 w/ time 120000 us
+V/ACodec  (   74): [OMX.RENESAS.VIDEO.DECODER.H264] onOMXFillBufferDone 0x2a068970 time 0 us, flags = 0x00000010
+...
+
+Looks like something else is still missing ...
+
+Posted a question in --
+
+ https://groups.google.com/forum/#!searchin/android-platform/ACodec$20nativeWIndow/android-platform/STnbdirlNVY/846XRhhSDzEJ
+
+ http://stackoverflow.com/questions/24167635/acodec-call-to-omx-getextensionindex-fails-during-playback-of-an-m3u8-file
+
+ - - - - - 
+
+ 
+Trying forcing S/W codec only to ACodec:
+
+bool ACodec::UninitializedState::onAllocateComponent
+...
+        OMXCodec::findMatchingCodecs(
+                mime.c_str(),
+                encoder, // createEncoder
+                NULL,  // matchComponentName
+                kSoftwareCodecsOnly,  // flags - was 0 - Forcing SW for ACodec (live streaming)
+                &matchingCodecs,
+                &matchingCodecQuirks);
+
+Also un-commenting this in device/renesas/emev/media_codecs.xml:
+
+    <MediaCodec name="OMX.google.h264.decoder" type="video/avc" />
+
+but it crashed:
+
+
+V/ACodec  (   74): Now uninitialized
+V/ACodec  (   74): onAllocateComponent
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Loaded
+V/ACodec  (   74): onConfigureComponent - msg: AMessage(what = 'setu', target = 17) = {
+V/ACodec  (   74):    string mime = "video/avc"
+V/ACodec  (   74):    int32_t width = 1280
+V/ACodec  (   74):    int32_t height = 720
+V/ACodec  (   74):    ABuffer *csd-0 = 0x2a089a80
+V/ACodec  (   74):    ABuffer *csd-1 = 0x2a088e50
+V/ACodec  (   74):    RefBase *native-window = 0x2a034238
+V/ACodec  (   74):  }
+V/ACodec  (   74): ComponentName: OMX.google.h264.decoder
+V/ACodec  (   74): onStart
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Loaded->Idle
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 8 buffers of size 65536 on input port
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 2 buffers of size 115200 on output port
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Idle->Executing
+V/ACodec  (   74): [OMX.google.h264.decoder] calling fillBuffer 0x2a0a59f0
+V/ACodec  (   74): [OMX.google.h264.decoder] calling fillBuffer 0x2a095dc0
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Executing
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a092e28 w/ codec specific data
+V/ACodec  (   74): [OMX.google.aac.decoder] calling emptyBuffer 0x2a051230 w/ time 408111 us
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a0a5748 w/ codec specific data
+F/ACodec  (   74): frameworks/av/media/libstagefright/ACodec.cpp:2544 CHECK_LE( buffer->size(),info->mData->capacity()) failed: 91286 vs. 65536
+F/libc    (   74): Fatal signal 11 (SIGSEGV) at 0xdeadbaad (code=1), thread 1533 (NuPlayerDecoder)
+...
+I/DEBUG   (   70): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+I/DEBUG   (   70): Build fingerprint: 'emxx/renesas_emev/emev:4.1.1/JRO03L/eng.ffxx68.20130710.064436:eng/test-keys'
+I/DEBUG   (   70): pid: 74, tid: 1533, name: NuPlayerDecoder  >>> /system/bin/mediaserver <<<
+I/DEBUG   (   70): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr deadbaad
+...
+I/DEBUG   (   70): backtrace:
+I/DEBUG   (   70):     #00  pc 000180ae  /system/lib/libc.so
+I/DEBUG   (   70):     #01  pc 0000dbd4  /system/lib/libc.so (abort+4)
+I/DEBUG   (   70):     #02  pc 00003f45  /system/lib/libcutils.so (__android_log_assert+88)
+I/DEBUG   (   70):     #03  pc 00049d2b  /system/lib/libstagefright.so
+
+Seems like buffer->size (91286) is larger than info->mData->capacity (65536).
+
+Note as info->mData->capacity is given on buffer allocation:
+
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 8 buffers of size 65536 on input port
+
+while OMXCodec is larger than that:
+
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocating 2 buffers of size 1048576 on input
+
+Buffer size gets from these fragments, in Acodec.cpp:
+
+ACodec::setupVideoEncoder
+...
+    def.nBufferSize = (video_def->nStride * video_def->nSliceHeight * 3) / 2;
+
+ACodec::setVideoFormatOnPort
+...
+    if (portIndex == kPortIndexInput) {
+        // XXX Need a (much) better heuristic to compute input buffer sizes.
+        const size_t X = 64 * 1024;
+        if (def.nBufferSize < X) {
+            def.nBufferSize = X;
+        }
+    }
+
+Changing logic like below:
+
+ const size_t X = 64 * 1024  ->  const size_t X = 128 * 1024;
+
+But now it's failing for some other reason:
+
+...
+V/ACodec  (   74): Increasing nBufferSize to 131072
+V/ACodec  (   74): setVideoFormatOnPort
+V/ACodec  (   74): ComponentName: OMX.google.h264.decoder
+V/ACodec  (   74): onStart
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Loaded->Idle
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 8 buffers of size 131072 on input port
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 2 buffers of size 115200 on output port
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Idle->Executing
+V/ACodec  (   74): [OMX.google.h264.decoder] calling fillBuffer 0x2a085a80
+V/ACodec  (   74): [OMX.google.h264.decoder] calling fillBuffer 0x2a085c58
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Executing
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a089e30 w/ codec specific data
+V/ACodec  (   74): [OMX.google.h264.decoder] onOMXEmptyBufferDone 0x2a089e30
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a099d50 w/ codec specific data
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a089e30 w/ time 240000 us
+E/SoftAVC (   74): Decoder failed: -2
+V/ACodec  (   74): [OMX.google.h264.decoder] onOMXEmptyBufferDone 0x2a099d50
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a099c50 w/ time 360000 us
+E/ACodec  (   74): [OMX.google.h264.decoder] ERROR(0x80001001)
+....
+
 
 
 
