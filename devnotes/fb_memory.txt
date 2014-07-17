@@ -1,0 +1,98 @@
+
+ May 26th, 2014
+
+From arch/arm/mach-emxx/include/mach/emxx_mem.h :
+															
+/* FB frame buffer(16MB) */
+#define FB_FRAME_BUFFER_ADDR	0x4AB00000
+#define FB_FRAME_BUFFER_SIZE	0x01000000
+
+Size is 16Mb.
+
+This is what's found in emxx_fb module startup in dmesg as well:
+
+emxxlfb: Device 0: Framebuffer physical address: 0x4ab00000
+emxxlfb: Device 0: Framebuffer virtual address: 0xe1000000
+emxxlfb: Device 0: Framebuffer size: 16588800
+
+In the bootloader definition, the following is defined for memory mapping:
+
+#define CONFIG_DDR		"mem=163M@0x40000000 mem=256M@0x50000000"
+
+leaving the entire section 0x4A300000 to 0x50000000 available for the FB, which is 93 Mb! 
+
+Actually, FB takes only 0x4AB00000 to 0x4BB00000, so we could re-configure CONFIG_DDR to use all memory, to gain 77Mb for user apps, which is not negligible with respect to the 419Mb that we presently: +18%.
+
+ - - - - - 
+
+Changing bootloader CONFIG_DDR to
+
+ "mem=170M@0x40000000 mem=68M@0x4BC00000 mem=256M@0x50000000"
+
+(leaving a "safety" 1Mb margin around 0x4AB00000-0x4BB00000)
+
+But it failed on boot up:
+
+...
+InterDSP : MKDEV control minor: 16
+InterDSP : MKDEV datamgr minor: 25
+Unable to handle kernel paging request at virtual address 001ffff0
+pgd = c0004000
+[001ffff0] *pgd=00000000
+Internal error: Oops: 5 [#1] PREEMPT SMP
+last sysfs file: /sys/devices/virtual/block/md0/uevent
+Modules linked in: inter_dsp
+...
+
+ - - - - - -
+
+Actually, in
+
+  ./arch/arm/mach-emxx/include/mach/emxx_mem.h
+
+there's a number of memory areas reserved to some devices:
+
+#if defined(CONFIG_EMXX_ANDROID) && defined(CONFIG_ANDROID_PMEM)
+/* PMEM(40MB) */
+#define EMXX_PMEM_BASE		0x47F00000
+#define EMXX_PMEM_SIZE		0x02800000
+#endif
+
+/* Overlay frame buffer(2MB) */
+#define OVERLAY_FRAME_BASE	0x4A700000
+
+/* Camera frame buffer(2MB) */
+#define CAMERA_FRAME_BASE	0x4A900000
+#define CAMERA_FRAME_SIZE	0x00200000
+
+/* FB frame buffer(16MB) */
+#define FB_FRAME_BUFFER_ADDR	0x4AB00000
+#define FB_FRAME_BUFFER_SIZE	0x01000000
+
+/* Direct Path frame buffer(6MB) */
+#define LCD_FRAME_BUFFER_ADDR	0x4BB00000
+#define LCD_FRAME_BUFFER_SIZE	0x00600000
+
+/* V4L2 ROT buffer(12MB) */
+#define V4L2_ROT_BUFFER_ADDR	0x4C100000
+#define V4L2_ROT_BUFFER_SIZE	0x00C00000
+
+/* NTSC frame buffer(2MB) */
+#define NTSC_FRAME_BUFFER_ADDR	0x4CD00000
+#define NTSC_FRAME_BUFFER_SIZE	0x00200000
+
+/* InterDSP */
+#define INTERDSP_DL_TOP_ADDR	0x4CF00000 /* DSP-FW downlaod range (top) */
+#define INTERDSP_DL_BOTTOM_ADDR	0x4FFDFFFF /*                       (end) */
+
+/* CPU<->DSP command buffer(128K) */
+#define INTERDSP_SHARED_ADDR	0x4FFE0000
+#define INTERDSP_SHARED_SIZE	0x00020000
+
+These actually cover all the range 0x4A700000 to 0x4FFFFFFF (PMEM isn't configured)
+
+So, the only change I can make to config_ddr is:
+
+  "mem=167M@0x40000000 mem=256M@0x50000000"
+
+which is only 4Mb more (163 to 167) than the original... worth it ???
