@@ -1,0 +1,36 @@
+
+ Jul 2014
+
+This is the way I succeeded to root JB (all other methods I mentioned before having failed).
+
+Requires ADB access to device.
+
+If root fs is not mounted as read/write, these preliminary steps are needed:
+
+0.1) adb pull  /init.rc init.rc.tmp
+
+Then, edit locally init.rc.tmp, looking for "mount rootfs rootfs / ro remount" line, then carefully changing only the "ro" to "rw".
+
+0.2) adb shell "mount -o rw,remount -t ext3 /dev/root /"
+0.3) adb push  init.rc.tmp /init.rc
+0.4) adb shell chown sytem:system /init.rc
+0.5) adb shell 644 /init.rc
+
+Reboot. If anything goes wrong and rebooting fails, you have to re-flash the ROM.
+
+Once /system is writable, the "su" hacking goes like this:
+
+1) Install SuperSU app (by 'Chainfire'), from Google Play
+2) Trying to run the su binary update will fail
+3) Download UPDATE-SuperSU-v2.00.zip from http://download.chainfire.eu/450/SuperSU/ and extract to your PC, then go to that folder
+4) adb shell mkdir /system/bin/.ext
+5) adb shell push arm/su /system/bin/.ext/.su
+6) adb shell chmod 6755 /system/bin/.ext/.su
+7) adb shell push arm/su /system/xbin/su
+8) adb shell chmod 6755 /system/xbin/su
+9) verify with:
+adb shell
+root@android:/ # su 1000
+system@android:/ $ su    --->   here SuperSU app should prompt for a confirmation request
+root@android:/ #
+10) Say thanks to Chainfire by purchasing SuperSU pro, if you like...
