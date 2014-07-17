@@ -1,0 +1,203 @@
+
+ 15 Jul 2014
+
+Testing Spirit FM app, for FM radio playback.
+
+1st - Need rooting of device. Used procedure as per Rooting.txt
+2nd - Install Spirit FM app (see also http://forum.xda-developers.com/showthread.php?t=1059296&page=809)
+3rd - Plug-in hearphones (they are used as FM antenna)
+3rd - Start Spirit FM app; under Settings -> Debug -> HCI Access -> Bluedroid shim
+
+This was enough to tune in stations (RSSI stable signal and RDS messages), but not for audio output...
+
+ - - - - -
+
+From schematics (EMEV2_TK_2011-05-17_HW03.pdf), looks like FM audio output of BCM4329 is fed into LINE_IN input of the ALC5621 audio mixer chip.
+
+So, in order to enable FM audio...
+
+1) To review:
+
+ ./sound/arm/emxx-mixer.c
+
+to enable LINE_IN handling in a way which is similar to AUXIN 
+
+ ./sound/arm/rt5621.h
+
+#define RT5621_AUXIN_VOL			0X08			//AUXIN VOLUME
+#define RT5621_LINE_IN_VOL			0X0A			//LINE IN VOLUME
+
+Note as AUX_IN is getting the audio output from the 3G module instead.
+
+2) To handle LINE_IN as a supplementary input
+
+E.g. add handling of AUX_IN and LINEIN in the AOSP ALSA driver:
+
+ device/renesas/emev/audio/mixer_paths.xml :
+
+  <path name="speaker">
+...
+  <path name="headphone">
+...
+  <path name="mic">
+...
+
+ device/renesas/emev/audio/audio_hw.c :
+
+static void select_devices(struct audio_device *adev)
+{
+    int headphone_on;
+    int speaker_on;
+    int main_mic_on;
+
+    headphone_on = adev->devices & (AUDIO_DEVICE_OUT_WIRED_HEADSET |
+                                    AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
+    speaker_on = adev->devices & AUDIO_DEVICE_OUT_SPEAKER;
+    main_mic_on = adev->devices & AUDIO_DEVICE_IN_BUILTIN_MIC;
+...
+
+Note as the AUDIO_DEVICE_... are defined in the AOSP code:
+
+ ./hardware/libhardware_legacy/audio/audio_hw_hal.cpp
+
+static uint32_t adev_get_supported_devices(const struct audio_hw_device *dev)
+{
+    /* XXX: The old AudioHardwareInterface interface is not smart enough to
+     * tell us this, so we'll lie and basically tell AF that we support the
+     * below input/output devices and cross our fingers. To do things properly,
+     * audio hardware interfaces that need advanced features (like this) should
+     * convert to the new HAL interface and not use this wrapper. */
+
+    return (/* OUT */
+            AUDIO_DEVICE_OUT_EARPIECE |
+            AUDIO_DEVICE_OUT_SPEAKER |
+            AUDIO_DEVICE_OUT_WIRED_HEADSET |
+            AUDIO_DEVICE_OUT_WIRED_HEADPHONE |
+            AUDIO_DEVICE_OUT_AUX_DIGITAL |
+            AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET |
+            AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET |
+            AUDIO_DEVICE_OUT_ALL_SCO |
+            AUDIO_DEVICE_OUT_DEFAULT |
+            /* IN */
+            AUDIO_DEVICE_IN_COMMUNICATION |
+            AUDIO_DEVICE_IN_AMBIENT |
+            AUDIO_DEVICE_IN_BUILTIN_MIC |
+            AUDIO_DEVICE_IN_WIRED_HEADSET |
+            AUDIO_DEVICE_IN_AUX_DIGITAL |
+            AUDIO_DEVICE_IN_BACK_MIC |
+            AUDIO_DEVICE_IN_ALL_SCO |
+            AUDIO_DEVICE_IN_DEFAULT);
+}
+
+- - - - - -
+
+Handling Kernel modifications (1) first, so that at least the input control could be set manually.
+
+The following new capture options have been added:
+
+	"AUXIN_to_Speaker", "LINEIN_to_Speaker",
+	"AUXIN_to_Headphone", "LINEIN_to_Headphone"
+
+Compile ok... Reboot ok... Standard audio test ok...
+
+- - - - - -
+
+ 16 Jul
+
+Using the 'ssd' tool to control audio paths, delivered with the SpiritFM app, I get the list:
+
+ cd /data/data/com.mikersmicros.fm_unlock/files
+ ./ssd 4 0
+
+...
+name:                                       DAC Volume  numid: 001  access: rd,wr,   (0x03)  type: Integer (2)  min: 0  max: 31  Values: 2 2
+name:                                 Headphone Volume  numid: 002  access: rd,wr,   (0x03)  type: Integer (2)  min: 0  max: 31  Values: 2 2
+name:                                   Speaker Volume  numid: 003  access: rd,wr,   (0x03)  type: Integer (2)  min: 0  max: 31  Values: 2 2
+name:                                      MIC1 Volume  numid: 004  access: rd,wr,   (0x03)  type: Integer (2)  min: 0  max: 31  Values: 2 2
+name:                                      MIC2 Volume  numid: 005  access: rd,wr,   (0x03)  type: Integer (2)  min: 0  max: 31  Values: 2 2
+name:                                     AUXIN Volume  numid: 006  access: rd,wr,   (0x03)  type: Integer (2)  min: 0  max: 31  Values: 2 2
+name:                                    LINEIN Volume  numid: 007  access: rd,wr,   (0x03)  type: Integer (2)  min: 0  max: 31  Values: 2 2
+name:                                    AUXOUT Volume  numid: 008  access: rd,wr,   (0x03)  type: Integer (2)  min: 0  max: 31  Values: 2 2
+name:                                   Capture Switch  numid: 009  access: rd,wr,   (0x03)  type: Enumerated (3)                Values: 10  items: 11  names: 'OFF' 'MIC_normal' 'MIC_ringtone' 'MIC_incall' 'Headset_normal' 'Headset_ringtone' 'Headset_incall' 'AUXIN_to_Speaker' 'LINEIN_to_Speaker' 'AUXIN_to_Headphone' 'LINEIN_to_Headphone'
+name:                             Sampling Rate Switch  numid: 010  access: rd,wr,   (0x03)  type: Enumerated (3)                Values: 10  items: 12  names: '7.35kHz' '8kHz' '11.025kHz' '12kHz' '14.7kHz' '16kHz' '22.05kHz' '24kHz' '29.4kHz' '32kHz' '44.1kHz' '48kHz'
+name:                                  Playback Switch  numid: 011  access: rd,wr,   (0x03)  type: Enumerated (3)                Values: 6  items: 9  names: 'OFF' 'Speaker_normal' 'Speaker_ringtone' 'Speaker_incall' 'Earpiece_ringtone' 'Earpiece_incall' 'Headset_normal' 'Headset_ringtone' 'Headset_incall'
+name:                               CODEC Power Switch  numid: 012  access: rd,wr,   (0x03)  type: Boolean (1)                   Values: 1
+
+The tool syntax is
+
+ ssd 4 0 -> list of accessible audio mixer controls
+ ssd 4 <X> <Y> <Z> -> set control <Y> to new value <Z> (using mode <X>: 1 bool, 2 int, 3 enum)
+       
+The driver after my fix includes below modes for the "Capture Switch" (input selector):
+
+ AUXIN_to_Speaker
+ LINEIN_to_Speaker
+ AUXIN_to_Headphone
+ LINEIN_to_Headphone
+
+For the FM radio, I should enable input from LINEIN to either speaker or headphone.
+
+The below command opened up the audio flow from FM radio:
+
+ ./ssd 4 3 9 10
+
+This one will set the LINEIN input volue to a minum:
+
+ ./ssd 4 2 7 32
+
+This one will open full volume the LINEIN input:
+
+ ./ssd 4 2 7 0
+
+ - - - - - 
+
+ 17 Jul
+
+I have an issue with my fix of the RT5621 driver which I don't understand:
+
+  './ssd 4 3 9 10' send linein to both speaker and headphone output (should enable to speaker only)
+
+
+  './ssd 4 3 9 8' mutes both (should enable to headphone only)
+
+Have to analyze that...
+
+On bootup, headphone is selected by default.
+
+Anyway, I can use these:
+
+ ./ssd 4 2 11 1 -> select Speaker output only
+ ./ssd 4 2 11 6 -> select Headphone output only
+
+ - - - - -
+
+Note how SpiritFM (version 1) has a way to exec custom scripts (by setting Audio -> Method = Custom):
+
+int custom_out_set (int out) {
+  if (out == 1)
+    return (su_run ("sh /sdcard/sprt_mute", 0));
+  else if (out == 2)
+    return (su_run ("sh /sdcard/sprt_spkr", 0));
+  else //if (out == 3)
+    return (su_run ("sh /sdcard/sprt_hdst", 0));
+}
+
+So, creating these scripts automates app handling of audio:
+
+ echo "cd /data/data/com.mikersmicros.fm_unlock/files; ./ssd 4 3 9 10; ./ssd 4 2 11 6; ./ssd 4 2 7 2">/sdcard/sprt_hdst
+ echo "cd /data/data/com.mikersmicros.fm_unlock/files; ./ssd 4 3 9 10; ./ssd 4 2 11 1; ./ssd 4 2 7 2">/sdcard/sprt_spkr
+ echo "cd /data/data/com.mikersmicros.fm_unlock/files; ./ssd 4 2 7 32">/sdcard/sprt_mute
+
+
+
+
+
+
+
+
+
+
+
+
+
+
