@@ -1,0 +1,24 @@
+
+ 6 Jun 2014
+
+It'd be nice to have sound output disabled on device in HDMI mode. 
+
+I've put a patch in sound/arm/emxx-mixer.c 
+
+static int codec_power_on(void)
+{
+   ...
+	/* Mute speakers (not Headphone) in case of HDMI output */
+	if (HDMI_OUTPUT_MODE == EMXX_FB_OUTPUT_MODE_HDMI_720P) {
+		res = CODEC_WRITE_M(RT5621_SPK_OUT_VOL, RT_L_MUTE | RT_R_MUTE, RT_L_MUTE | RT_R_MUTE);
+
+But seems not working, as I can still hear audio through speakers... need to debug (though not urgent).
+
+ - - - - 
+
+Enabling debug in Kernel, to see what's happening...
+
+I ended up adding a simialr section into rt5621_AudioMute() as well.
+
+It worked: on HDMI, internal speakers get muted now.
+
