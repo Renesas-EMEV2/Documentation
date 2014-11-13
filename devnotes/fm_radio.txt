@@ -188,6 +188,82 @@ So, creating these scripts automates app handling of audio:
  echo "cd /data/data/com.mikersmicros.fm_unlock/files; ./ssd 4 3 9 10; ./ssd 4 2 11 1; ./ssd 4 2 7 2">/sdcard/sprt_spkr
  echo "cd /data/data/com.mikersmicros.fm_unlock/files; ./ssd 4 2 7 32">/sdcard/sprt_mute
 
+ - - - - -
+
+ 13 Oct 2014
+
+Issue - audio playback is muted on all oter apps, until I turn on "speaker" output on SpiritFM.
+
+Even removing the/sdcard/sprt_* (I suspected the mute was called anyway) didn't solve.
+
+Need to debug the kernel driver, after the fix I introduced above...
+
+ ./sound/arm/emxx-mixer.c
+
+dmesg: 
+
+<4>emxx_mixer: codec_init: vol controls=8
+<4>emxx_mixer: controls_count 0, user_ctl_count 0
+<6>emxx_mixer: Starting sound codec.
+<6>  #0: sound codec (emxx mixer)
+<4>emxx_mixer: codec power off
+<4>emxx_mixer: codec power on
+<4>emxx_mixer: codec_init: vol controls=8
+<4>emxx-mixer: changing codec power to state: 1
+<4>emxx-mixer: codec_power_on
+
+I noticed that, on startup, the output mode is set to OFF.
+
+Output is turned on manually, with:
+
+ ./ssd 4 3 11 1 
+
+I noticed some errors in logcat on startup:
+
+E/audio_hw_primary(   74): CODEC Power on failed
+...
+V/audio_hw_primary(   74): select_devices: adev->devices=0x2 -> hp=n speaker=y main-mic=n
+E/audio_hw_primary(   74): CODEC Power on failed
+E/audio_hw_primary(   74):  mixer_ctl_set_value failed on 'Playback Switch' new value#0 = 1
+E/audio_hw_primary(   74): CODEC Power on failed
+
+Coming from device/renesas/emev/audio/audio_route.c:
+
+    /* Open CODEC Power first (or set_value would fail) */
+    if (mixer_ctl_set_value(ar->mixer_state[MIXER_CTL_POWER].ctl, 0, 1) < 0)
+	ALOGE("CODEC Power on failed");
+
+Note as I had to introduce the power-on as first call, to make the followong ones work
+
+Seems like even first Power-on call isn't working anymore ...
+
+ - - - - 
+
+After I added LINEIN to mixer controls, POWER moved from position 10 to 11.
+
+MIXER_CTL_POWER=10 was hardcoded in audio_route.c and that was wrong.
+
+Fixed MIXER_CTL_POWER to 11... 
+
+ - - - - 
+
+Maybe the fix should be moved to kernel, where we have a check like:
+
+ 	if (codec->power_on == 0) {
+		FNC_EXIT return -EINVAL;
+	}
+
+in both emxx_codec_enum_put() and emxx_codec_integer_put()
+
+ - - - - 
+
+
+
+
+
+
+ 
+
 
 
 
