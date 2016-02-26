@@ -1,0 +1,163 @@
+
+
+ 16 April
+
+LP boot failed with (seen using serial console):
+
+D/libEGL  ( 7682): loaded /vendor/lib/egl/libGLESv2_POWERVR_SGX530_120.so
+W/linker  ( 7682): libpvrANDROID_WSEGL.so: unused DT entry: type 0xf arg 0x124
+W/libEGL  ( 7682): eglInitialize(0x1) failed (EGL_BAD_ALLOC)
+W/linker  ( 7682): gralloc.emxx.so: unused DT entry: type 0xf arg 0x4e8
+W/linker  ( 7682): libpvr2d.so: unused DT entry: type 0xf arg 0x779
+W/linker  ( 7682): hwcomposer.emxx.so: unused DT entry: type 0xf arg 0xeb
+E/HAL     ( 7682): load: module=/vendor/lib/hw/hwcomposer.emxx.so
+E/HAL     ( 7682): dlopen failed: cannot locate symbol "SGX_DBG" referenced by "hwcomposer.emxx.so"...
+E/SurfaceFlinger( 7682): hwcomposer module not found
+E/SurfaceFlinger( 7682): ERROR: failed to open framebuffer (Not a typewriter), aborting
+F/libc    ( 7682): Fatal signal 6 (SIGABRT), code -6 in tid 7682 (surfaceflinger)
+...
+
+
+Also, trying to start the 'pvrsrvctl' service, I get an error:
+
+root@android:/ # pvrsrvctl                                                     
+error: only position independent executables (PIE) are supported.
+
+This points to the need to rebuild the SGX KM and UM modules, I think. 
+
+Also, binary should be built using latest LP toolchain and probably setting the -fPIE and -pie flags.
+
+ - - - - -
+
+Trying recompiling SGX modules, following instructions in:
+
+ ~/disk2/RenesasEV2/SGX_1.8/SGX1.8_EMEV_JB
+
+Copied completely to:
+
+ ~/disk2/RenesasEV2/SGX_1.8/SGX1.8_EMEV_LP
+
+After some fixing in the scripts (paths), I can complete comilation of KM modules (compile_km.sh).
+
+Compilation of UM modules (compile_um.sh) on the other hand fails with:
+
+---------
+   CC       services4/srvinit/env/linux/pvrsrvctl.c
+In file included from /home/fabio/disk5/rena/lp/bionic/libc/include/sys/syscall.h:31:0,
+                 from services4/srvinit/env/linux/pvrsrvctl.c:7:
+/home/fabio/disk5/rena/lp/bionic/libc/include/errno.h:32:25: fatal error: linux/errno.h: No such file or directory
+---------
+
+Seems like it can't find the path to Kernel linux/errno.h ... 
+It's a difference in AOSP bionic/libc sub-struct. Fixed in SGX make file:
+
+ ./eurasia/eurasiacon/build/linux2/common/android/armv7-a.mk
+
+Then build failed for this:
+
+---------
+   BISON    tools/intern/oglcompiler/parser/glsl_parser.y
+tools/intern/oglcompiler/parser/glsl_parser.y:690.1-13: warning: deprecated directive, use ‘%name-prefix’ [-Wdeprecated]
+ %name-prefix="glsl_"				/* Allow multiple parsers in the same program. */
+ ^^^^^^^^^^^^^
+tools/intern/oglcompiler/parser/glsl_parser.y: warning: 3 shift/reduce conflicts [-Wconflicts-sr]
+tools/intern/oglcompiler/parser/glsl_parser.y: warning: 5 reduce/reduce conflicts [-Wconflicts-rr]
+  CC       tools/intern/oglcompiler/glsl/astbuiltin.c
+In file included from tools/intern/oglcompiler/parser/tokens.h:29:0,
+                 from tools/intern/oglcompiler/parser/lex.h:4,
+                 from tools/intern/oglcompiler/parser/parser.h:26,
+                 from tools/intern/oglcompiler/glsl/glsltree.h:27,
+                 from tools/intern/oglcompiler/glsl/semantic.h:28,
+                 from tools/intern/oglcompiler/glsl/astbuiltin.c:25:
+eurasiacon/binary2_emev_android_release/target/intermediates/glslparser/glsl_parser.tab.h:261:17: error: unknown type name 'ParseContext'
+ int glsl_parse (ParseContext *psParseContext, GLSLTreeContext *psGLSLTreeContext);
+                 ^
+---------
+
+Note as this same error I got in JB version build too...
+
+ - - - - 
+
+ 17 Apr
+
+Could be a bison version issue? For example "deprecated directive" warning is fixed by editing
+
+ ./eurasia/tools/intern/oglcompiler/parser/glsl_parser.y
+
+%name-prefix="glsl_"
+
+being changed to 
+
+%name-prefix "glsl_"
+
+...
+
+But removing that warning alone didn't solve the error...
+
+ - - - - -
+
+Anyway, I realized compilation fails after having already completed the build of all required SGX libs and binaries (probably 'tools' are not required here). 
+
+Installing newly built libs and binaries ....
+
+Added the '-fPIE -pie' flags to SYS_CFLAGS, SYS_EXE_LDFLAGS and SYS_LIB_LDFLAGS, in 
+
+ ./eurasia/eurasiacon/build/linux2/common/android/armv7-a.mk
+
+ - - - - -
+
+In fact, making the build of exactly same code in a different (Ubuntu 13) environment (with different gawk and bison versions), the build completes succesfully !!
+
+ - - - - -
+
+ 22 Apr
+
+Seems like after a complete cleanup, not all components are built successfully.
+
+Trying to recompile all components (except unittest), one by one, as listed in
+
+ eurasia/eurasiacon/build/linux2/common/components.mk
+
+Using 'make MODULE' as the make step from compile_um.sh, where MODULE is one of these:
+
+pvrsrvctl     OK
+egl           OK
+pvr2d         OK
+opengles1     OK
+opengles2     OK
+composerhal   -> FAIL!
+
+   CC       eurasiacon/android/composerhal/hwc.c
+eurasiacon/android/composerhal/hwc.c:55:31: error: unknown type name 'hwc_composer_device_t'
+ static int hwc_device_prepare(hwc_composer_device_t *dev,
+                               ^
+eurasiacon/android/composerhal/hwc.c:56:10: error: unknown type name 'hwc_layer_list_t'
+          hwc_layer_list_t *list)
+
+This is becasue of a different struct definitions in LP wrt LP, within
+
+ $AOSP/hardware/libhardware/include/hardware/hwcomposer.h
+
+I can see several and significant differences, in this file.
+
+Hack - pointing to include/hardware/hwcomposer.h from JB dir !!!
+
+composerhal  OK
+
+ - - - - -
+
+Recompiling with -fPIE flags and pushing to device, I don't get the PIE-related error anymore, but I still get a segmentation fault:
+
+root@android:/vendor/bin # ./pvrsrvctl                                         
+WARNING: linker: ./pvrsrvctl: unused DT entry: type 0xf arg 0x145
+WARNING: linker: libsrv_init.so: unused DT entry: type 0xf arg 0x1c2
+WARNING: linker: libsrv_um.so: unused DT entry: type 0xf arg 0xb31
+WARNING: linker: ./pvrsrvctl has text relocations. This is wasting memory and prevents security hardening. Please fix.
+Segmentation fault 
+
+With this error, I think I give up for now, as I hacked this already too much... 
+
+Seems like migration to AOSP 5.x requires major changes in SGX.
+
+Also, starting with Android 4.3 and API level , apps might require GLES v3, while we have only 2 here.
+

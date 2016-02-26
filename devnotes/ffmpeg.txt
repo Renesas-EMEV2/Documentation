@@ -1,0 +1,482 @@
+
+ 24 Oct
+
+Integrating FFMPEG software codecs into JB AOSP as descriubed in 
+
+ 	https://github.com/omxcodec/stagefright-plugins
+
+(Discussion at https://groups.google.com/forum/#!topic/android-x86/mTnTe39D5Co)
+
+Following readme at https://github.com/omxcodec/stagefright-plugins
+
+1) Cloning code
+
+ cd <jb asop root>
+ git clone git@github.com:omxcodec/android_frameworks_av.git frameworks_av -b cm_maguro-10.1
+ git clone git@github.com:omxcodec/android_frameworks_native.git frameworks_native -b cm_maguro-10.1
+ cd external
+ git clone git@github.com:omxcodec/stagefright-plugins.git stagefright-plugins
+ git clone git@github.com:omxcodec/android_external_ffmpeg.git ffmpeg -b cm_maguro-10.1
+
+2) Comparing frameworks/av with frameworks_av 
+
+Creating a new branch, to track these changes:
+
+ cd <JB AOSP>/frameworks/av
+ git checkout -b ffmpeg
+
+Looking for the files to be compared (by the tag "USES_NAM").
+Using kdiff3 (GUI; dir-by-dir comapre) to merge ONLY these files.
+The merged files are found in frameworks_av, before checking and moving them back to frameworks/av.
+Moving to frameworks/av only the sections from frameworks_av files with USES_NAM tag.
+BTW - I noticed MANY other differences, due to the different starting version (CM 10.1=JB 4.3), but I ignored them.
+
+ cd ../frameworks_av
+ find . -type f | xargs grep -l USES_NAM
+
+./include/media/stagefright/MediaDefs.h            * nothing done
+./include/media/stagefright/MediaExtractor.h       * merged
+./include/media/stagefright/OMXCodec.h             * merged
+./include/media/stagefright/MetaData.h             * merged
+./include/media/stagefright/FileSource.h           * merged
+
+./media/libstagefright/include/AwesomePlayer.h           * merged
+./media/libstagefright/include/SimpleSoftOMXComponent.h  * merged
+
+./media/libstagefright/AwesomePlayer.cpp                 * merged
+./media/libstagefright/DataSource.cpp                    * merged
+./media/libstagefright/FileSource.cpp                    * merged
+./media/libstagefright/MediaCodec.cpp                    * merged 
+./media/libstagefright/MediaCodecList.cpp                * merged 
+./media/libstagefright/MediaDefs.cpp                     * merged 
+./media/libstagefright/MediaExtractor.cpp	         * merged 
+./media/libstagefright/OMXCodec.cpp                      * merged (some log taken from frameworks_av)
+./media/libstagefright/StagefrightMediaScanner.cpp       * merged
+
+./media/libstagefright/omx/OMXMaster.cpp                 * merged         
+./media/libstagefright/omx/SimpleSoftOMXComponent.cpp    * merged 
+./media/libstagefright/omx/SoftOMXPlugin.cpp	         * merged 
+
+
+3) Same merging strategy, for frameworks/native wrt frameworks_native
+
+ cd <JB AOSP>/frameworks/native
+ git checkout -b ffmpeg
+
+ cd <JB AOSP>/frameworks_native
+ find . -type f | xargs grep -l USES_NAM
+
+./include/media/openmax/OMX_Index.h       * merged 
+./include/media/openmax/OMX_Video.h       * merged 
+./include/media/openmax/OMX_Audio.h       * merged 
+
+
+4) Made a backup and copied all merged files from frameworks_av to frameworks/av, then build
+
+ cd <JB AOSP>
+ 
+ mkdir -p ./frameworks/av_backup/include/media/stagefright
+ mkdir -p ./frameworks/av_backup/media/libstagefright/omx
+ mkdir -p ./frameworks/native_backup/include/media/openmax/
+ cp ./frameworks/av/include/media/stagefright/MediaDefs.h ./frameworks/av_backup/include/media/stagefright/MediaDefs.h    
+ ... [all merged files above]
+ cp ./frameworks_av/include/media/stagefright/MediaDefs.h ./frameworks/av/include/media/stagefright/MediaDefs.h 
+ ... [all merged files above]
+
+ mv ./frameworks_native ..
+ mv ./frameworks_av ..
+ mv ./frameworks/av_backup/ ..
+ mv ./frameworks/native_backup/ ..
+ lunch 8; make
+ ...
+
+Failure in new external/stagefright-plugins/libstagefright/FFmpegExtractor, because it relies on definitions enclosed in #ifdef USES_NAM.
+
+
+5) Now enabling "USES_NAM" tag and rebuild
+
+Added below line to <JB AOSP>/device/renesas/emev/BoardConfig.mk:
+
+COMMON_GLOBAL_CFLAGS += -DUSES_NAM
+
+ lunch 8; make
+ ...
+
+After a few minor fixes, compilation went through!
+
+ - - - - -
+
+Testing new full build, even BEFORE enabling the new ffmpeg codecs in device/renesas/emev/media_codecs.xml.
+
+At present, I'm using Google SW codec for h264
+
+        <MediaCodec name="OMX.google.h264.decoder" type="video/avc"/>
+
+Startup is OK, but on YouTube playback I get a crash:
+
+...
+D/H264Dec (  707): H264SwDecInit#
+D/H264Dec (  707): H264SwDecInit# decInst 0x2a055c08 noOutputReordering 0
+D/H264Dec (  707): H264SwDecInit# OK: return 0x2a0b1238
+I/OMXCodec(  707): [OMX.google.h264.decoder] AVC profile = 66 (Baseline), level = 30
+I/OMXCodec(  707): [OMX.google.h264.decoder] video dimensions are 320 x 240
+I/OMXCodec(  707): [OMX.google.h264.decoder] Crop rect is 320 x 240 @ (0, 0)
+...
+
+D/H264Dec (  707): H264SwDecDecode# OK: DecResult 2
+D/H264Dec (  707): H264SwDecNextPicture#
+D/H264Dec (  707): H264SwDecNextPicture# decInst 0x2a0b1238 pOutput 0x4201ed98 flushBuffer 0
+D/H264Dec (  707): H264SwDecNextPicture# OK: return H264SWDEC_PIC_RDY
+F/libc    (  707): Fatal signal 11 (SIGSEGV) at 0x00000008 (code=1), thread 1818 (le.h264.decoder)
+...
+I/DEBUG   (   70):     #00  pc 00011ed0  /system/lib/libc.so
+I/DEBUG   (   70):     #01  pc 0000ad6b  /system/lib/libstagefright_omx.so (android::OMX::CallbackDispatcher::post(android::omx_message const&)+14)
+I/DEBUG   (   70):     #02  pc 0000b5e5  /system/lib/libstagefright_omx.so (android::OMX::OnEmptyBufferDone(void*, OMX_BUFFERHEADERTYPE*)+30)
+I/DEBUG   (   70):     #03  pc 0000ebd9  /system/lib/libstagefright_omx.so (android::SoftOMXComponent::notifyEmptyBufferDone(OMX_BUFFERHEADERTYPE*)+16)
+I/DEBUG   (   70):     #04  pc 00009f60  /system/lib/libstagefright_soft_h264dec.so (android::SoftAVC::onQueueFilled(unsigned long)+508)
+
+ - - - - 
+
+Added ffmpeg codecs to device/renesas/emev/media_codecs.xml 
+
+Rebuilt... test... still crashing:
+
+V/AwesomePlayer(  758): track of type 'video/avc' does not publish bitrate
+V/AwesomePlayer(  758): mBitrate = -1 bits/sec
+V/AwesomePlayer(  758): haveAudio:1, haveVideo:1
+V/AwesomePlayer(  758): initVideoDecoder flags=0x0
+I/EV2OMXPlugin(  758): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+I/OMXCodec(  758): [OMX.RENESAS.VIDEO.DECODER.H264] AVC profile = 66 (Baseline), level = 30
+I/OMXCodec(  758): [OMX.RENESAS.VIDEO.DECODER.H264] video dimensions are 640 x 344
+E/OMXNodeInstance(  758): OMX_GetExtensionIndex (index:'7fffffff') failed
+I/EV2OMXPlugin(  758): ***run OMFPlugin ------- destroyComponentInstance !!!!!!!!
+E/OMXMaster(  758): Invalid OMX component name 'OMX.ffmpeg.h264.decoder'
+E/MediaPlayer(  996): error (1, -2147483648)
+E/MediaPlayer(  996): Error (1,-2147483648)
+W/YouTube (  996): (unknown) MediaPlayer error during prepare [what=1, extra=-2147483648]
+W/YouTube (  996): (unknown) Retrying MediaPlayer error [retry=1, max=3]
+F/libc    (  758): @@@ ABORTING: INVALID HEAP ADDRESS IN dlfree addr=0x2a023ad0
+F/libc    (  758): Fatal signal 11 (SIGSEGV) at 0xdeadbaad (code=1), thread 794 (Binder_2)
+...
+I/DEBUG   (   70):     #00  pc 000137b8  /system/lib/libc.so
+I/DEBUG   (   70):     #01  pc 00015b95  /system/lib/libc.so (dlfree+1628)
+I/DEBUG   (   70):     #02  pc 00016d43  /system/lib/libc.so (free+10)
+I/DEBUG   (   70):     #03  pc 0007a853  /system/lib/libstagefright.so
+I/DEBUG   (   70):     #04  pc 0007ac0d  /system/lib/libstagefright.so (android::TimedEventQueue::~TimedEventQueue()+36)
+I/DEBUG   (   70):     #05  pc 000538ad  /system/lib/libstagefright.so (android::AwesomePlayer::~AwesomePlayer()+288)
+ 
+Even after removing RENESAS HW codecs for H264 from media_codecs.xml, this error is still there ...
+
+...
+I/OMXMaster( 1977): adding plugin component 'OMX.google.g711.alaw.decoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.g711.mlaw.decoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.h263.decoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.h263.encoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.mpeg4.decoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.mpeg4.encoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.mp3.decoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.vorbis.decoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.vpx.decoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.raw.decoder'
+I/OMXMaster( 1977): adding plugin component 'OMX.google.flac.encoder'
+I/OMXClient( 1816): Using client-side OMX mux.
+E/OMXMaster( 1977): Invalid OMX component name 'OMX.ffmpeg.h264.decoder'
+
+Seems like the "ffmpeg" plugins are not being added to the plugin list...
+
+After just touching SoftOMXPlugin.cpp and rebuilding, seems like the ffmpeg component is taken, but I get another error:
+
+V/SoftOMXPlugin(  752): makeComponentInstance 'OMX.ffmpeg.h264.decoder'
+E/SoftOMXPlugin(  752): unable to dlopen libstagefright_soft_ffmpegvdec.so: Cannot load library: load_library[1093]: Library 'libstagefright_soft_ffmpegvdec.so' not found
+E/OMXMaster(  752): Failed making plugin component instance (index 16)
+E/MediaPlayer( 1164): error (1, -2147483648)
+E/MediaPlayer( 1164): Error (1,-2147483648)
+
+Seem like this lib hasn't been pushed to device (why?). Pushing it manually:
+
+adb push out/target/product/emev/symbols/system/lib/libstagefright_soft_ffmpegvdec.so /system/lib/libstagefright_soft_ffmpegvdec.so
+adb shell chown system.system /system/lib/libstagefright_soft_ffmpegvdec.so
+adb shell ls -l libstagefright_soft_ffmpegvdec.so
+
+-rwxrwxrwx system   system     218968 2014-10-30 17:40 libstagefright_soft_ffmpegvdec.so
+
+But even after pushing it manually, I get the same error:
+
+E/SoftOMXPlugin(  313): unable to dlopen libstagefright_soft_ffmpegvdec.so: Cannot load library: find_library[1201]:   313 'libstagefright_soft_ffmpegvdec.so' failed to load previously
+
+ - - - - -
+
+Touching all merged and new files and rebuilding...
+
+ - - - - -
+
+ 31 Oct
+
+The crash has disappeared, but I still get this error:
+
+V/SoftOMXPlugin(   75): makeComponentInstance 'OMX.ffmpeg.h264.decoder'
+E/SoftOMXPlugin(   75): unable to dlopen libstagefright_soft_ffmpegvdec.so: Cannot load library: load_library[1093]: Library 'libstagefright_soft_ffmpegvdec.so' not found
+E/OMXMaster(   75): Failed making plugin component instance (index 16)
+E/MediaPlayer( 1610): error (1, -2147483648)
+E/MediaPlayer( 1610): Error (1,-2147483648)
+
+What I noticed is that all libstagefright_soft_* libs are rebuilt and found in /system/lib, while libstagefright_soft_ffmpegvdec.so is not... It is built, but not moved to /system/lib. Why?
+
+ffxx68@ubuntu:/media/u02/RenesasEV2/jb/out/target/product/emev$ find . -name libstagefright_soft_ffmpegvdec.so
+./obj/lib/libstagefright_soft_ffmpegvdec.so
+./obj/SHARED_LIBRARIES/libstagefright_soft_ffmpegvdec_intermediates/LINKED/libstagefright_soft_ffmpegvdec.so
+./symbols/system/lib/libstagefright_soft_ffmpegvdec.so
+
+ - - - - 
+
+Added below lines to device/renesas/emev/device.mk
+
+PRODUCT_PACKAGES += \
+        libstagefright_soft_ffmpegvdec \
+        libFFmpegExtractor
+
+Rebuild and pushed new libs:
+
+out/target/product/emev/system/lib/libavutil.so                     
+out/target/product/emev/system/lib/libavcodec.so                    
+out/target/product/emev/system/lib/libswscale.so                    
+out/target/product/emev/system/lib/libavformat.so                   
+out/target/product/emev/system/lib/libffmpeg_utils.so               
+out/target/product/emev/system/lib/libstagefright_soft_ffmpegvdec.so
+
+OK - Now playback starts, but video is severely distoreted (colors and image).
+
+Recompiling with SoftOMXPlugin debug traces off didn't solve...
+
+ - - - - 
+
+Some video are completely skewed, some have colors distored.
+
+The skewed ones also show this error message in logcat:
+
+E/SoftFFmpegVideo( 2556): Deinterlacing failed
+
+Maybe debugging this I solve all... Enabling debug in 
+
+ external/stagefright-plugins/libstagefright/codecs/ffmpegdec/vdec/SoftFFmpegVideo.cpp
+
+Failure above comes from this function
+
+ external/ffmpeg/libavcodec/imgconvert.c:int avpicture_deinterlace(AVPicture *dst, const AVPicture *src,
+
+    if (pix_fmt != AV_PIX_FMT_YUV420P &&
+        pix_fmt != AV_PIX_FMT_YUVJ420P &&
+        pix_fmt != AV_PIX_FMT_YUV422P &&
+        pix_fmt != AV_PIX_FMT_YUVJ422P &&
+        pix_fmt != AV_PIX_FMT_YUV444P &&
+        pix_fmt != AV_PIX_FMT_YUV411P &&
+        pix_fmt != AV_PIX_FMT_GRAY8)
+        return -1;
+    if ((width & 3) != 0 || (height & 3) != 0)
+        return -1;
+
+The failing check is on width and height. E.g.
+
+I/OMXCodec( 2556): [OMX.ffmpeg.h264.decoder] video dimensions are 424 x 318
+I/OMXCodec( 2556): Output Port = {
+I/OMXCodec( 2556):   nBufferCountActual = 2
+I/OMXCodec( 2556):   nBufferCountMin = 2
+I/OMXCodec( 2556):   nBufferSize = 207360
+I/OMXCodec( 2556):
+I/OMXCodec( 2556):   // Video
+I/OMXCodec( 2556):   nFrameWidth = 424
+I/OMXCodec( 2556):   nFrameHeight = 318
+I/OMXCodec( 2556):   nStride = 424
+I/OMXCodec( 2556):   eCompressionFormat = OMX_VIDEO_CodingUnused
+I/OMXCodec( 2556):   eColorFormat = OMX_COLOR_FormatYUV420Planar
+I/OMXCodec( 2556): }
+E/SoftFFmpegVideo( 2556): Deinterlacing failed
+
+Here color format is OK (YUV420P), but 424 and 318 are not modulus 3...
+
+ - - - - 
+
+Testing downloaded video (as suggested in https://github.com/omxcodec/stagefright-plugins), playback is fine with respect to image quality. Similar for both the test .mov and .mp4 files. 
+
+MX Player is used for the playback.
+
+It hangs and locks once in a while, for a few seconds, with logcat showing lots of:
+
+V/AwesomePlayer( 2090): we're late by 125631 us (0.13 secs)
+V/AwesomePlayer( 2090): we're late by 125631 us (0.13 secs) dropping one after 0 frames
+V/AwesomePlayer( 2090): we're late by 125382 us (0.13 secs)
+V/AwesomePlayer( 2090): we're late by 125382 us (0.13 secs) dropping one after 0 frames
+V/AwesomePlayer( 2090): we're late by 120819 us (0.12 secs)
+V/AwesomePlayer( 2090): we're late by 120819 us (0.12 secs) dropping one after 0 frames
+...
+
+This happens in particular when there's a large image changing. Less when video is more static.
+
+Seems like a lack of CPU bandwidth.
+
+Mediaserver sets CPU above 50%
+
+  PID PR CPU% S  #THR     VSS     RSS PCY UID      Name
+ 2090  0  52% S    16  64160K  17060K  fg media    /system/bin/mediaserver
+ 3175  0   1% R     1   1072K    476K     root     top
+  257  0   0% S    73 549956K  38280K  fg system   system_server
+ 3009  0   0% S    15 492776K  37872K  fg u0_a69   com.mxtech.videoplayer.ad
+...
+
+See also http://pastebin.com/tnrt9NB6
+
+ - - - - -
+
+Mordoc	eover, with the merging of ffmpeg, I broke the HW Renesas codec (which used to work just fine):
+
+V/AwesomePlayer( 2337): track of type 'video/avc' does not publish bitrate
+V/AwesomePlayer( 2337): mBitrate = -1 bits/sec
+V/AwesomePlayer( 2337): haveAudio:1, haveVideo:1
+V/AwesomePlayer( 2337): initVideoDecoder flags=0x0
+V/OMXCodec( 2337): matchComponentName (null) 
+V/OMXCodec( 2337): matchComponentName (null) 
+V/OMXCodec( 2337): Attempting to allocate OMX node 'OMX.RENESAS.VIDEO.DECODER.H264'
+I/EV2OMXPlugin( 2337): ***run OMFPlugin ------- makeComponentInstance !!!!!!!!
+I/Choreographer(  932): Skipped 37 frames!  The application may be doing too much work on its main thread.
+V/OMXCodec( 2337): Successfully allocated OMX node 'OMX.RENESAS.VIDEO.DECODER.H264'
+V/OMXCodec( 2337): configureCodec protected=0
+I/OMXCodec( 2337): [OMX.RENESAS.VIDEO.DECODER.H264] AVC profile = 66 (Baseline), level = 30
+V/OMXCodec( 2337): [OMX.RENESAS.VIDEO.DECODER.H264] setVideoOutputFormat width=640, height=360
+V/OMXCodec( 2337): [OMX.RENESAS.VIDEO.DECODER.H264] portIndex: 0, index: 0, eCompressionFormat=7 eColorFormat=0
+V/OMXCodec( 2337): [OMX.RENESAS.VIDEO.DECODER.H264] found a match.
+I/OMXCodec( 2337): [OMX.RENESAS.VIDEO.DECODER.H264] video dimensions are 640 x 360
+V/OMXCodec( 2337): mNativeWindow!=NULL:1 mIsEncoder:0 mMIME:video/avc mComponentName:OMX.RENESAS.VIDEO.DECODER.H264
+V/OMXCodec( 2337): Calling initNativeWindow
+V/OMXCodec( 2337): initNativeWindow
+E/OMXNodeInstance( 2337): OMX_GetExtensionIndex (index:'7fffffff') failed
+V/OMXCodec( 2337): Failed to configure codec 'OMX.RENESAS.VIDEO.DECODER.H264'
+
+Infact, it should NOT call initNativeWindow at all! 
+
+Found this, in OMXCodec::OMXCodec() 
+
+      mNativeWindow(
+              (!strncmp(componentName, "OMX.google.", 11)
+#ifdef USES_NAM
+              || !strncmp(componentName, "OMX.ffmpeg.", 11)
+#endif
+              || !strcmp(componentName, "OMX.Nvidia.mpeg2v.decode"))
+                        ? NULL : nativeWindow) {
+
+This was missing this condition:
+
+              || !strncmp(componentName, "OMX.RENESAS.", 12)
+
+Adding it back, it solved the issue and the HW Video decoder is used now by default.
+
+(An issue exists yet with the HW AAC Audio decoder...).
+
+ - - - - 
+
+Need to test with "Live" (m3u8) streaming, which makes use of ACodec, not OMXCOdec.
+
+V/ACodec  (   75): onAllocateComponent
+V/ACodec  (   75): findMatching OMX codecs 'video/avc' (SW only)
+V/OMXCodec(   75): matchComponentName (null) 
+V/OMXCodec(   75): matchComponentName (null) 
+V/ACodec  (   75): Found matching codec: 'OMX.ffmpeg.h264.decoder'
+...
+V/ACodec  (   75): ComponentName: OMX.ffmpeg.h264.decoder
+V/ACodec  (   75): nativeWindow creation
+V/ACodec  (   75): initNativeWindow
+E/OMXNodeInstance(   75): OMX_GetExtensionIndex (index:'4083345d') failed
+
+Probably ACodec need being patched for ffmpeg too, as I don't expect it to use native window...
+
+Added below check, in ACodec::LoadedState::onConfigureComponent:
+
+    if (msg->findObject("native-window", &obj)
+            && strncmp("OMX.google.", mCodec->mComponentName.c_str(), 11)
+	    && strncmp("OMX.RENESAS.", mCodec->mComponentName.c_str(), 12)
+#ifdef USES_NAM
+            && strncmp("OMX.ffmpeg.", mCodec->mComponentName.c_str(), 11)
+#endif
+
+Now it doesn't crash anymore, but (just like the RENESAS HW codec!) it goes on in logcat but no image is shown:
+
+...
+V/ACodec  (   75): [OMX.ffmpeg.h264.decoder] calling emptyBuffer 0x2a06c4f0 w/ time 53232200 us
+V/ACodec  (   75): [OMX.ffmpeg.h264.decoder] onOMXFillBufferDone 0x2a067240 time 52912200 us, flags = 0x00000000, dataPtr = 0x4452e000
+V/ACodec  (   75): [OMX.ffmpeg.h264.decoder] calling fillBuffer 0x2a067240 
+V/ACodec  (   75): [OMX.ffmpeg.h264.decoder] onOMXEmptyBufferDone 0x2a06cfb0
+...
+
+Complete logcat at: http://pastebin.com/q46wXJyD
+
+Could something else still be missing in ACodec?
+
+Could the same be missing for the HW decoder too (so that I would not need the ffmpeg at all, if fixed)?
+
+ - - - - 
+
+After "calling emptyBuffer" message, same method is being issued in both working and noon working playback:
+
+bool OMXCodec::drainInputBuffer()
+...
+    err = mOMX->emptyBuffer(
+            mNode, info->mBuffer, 0, offset,
+            flags, timestampUs);
+
+void ACodec::BaseState::onInputBufferFilled()
+...
+                CHECK_EQ(mCodec->mOMX->emptyBuffer(
+                            mCodec->mNode,
+                            bufferID,
+                            0,
+                            buffer->size(),
+                            flags,
+                            timeUs),
+                         (status_t)OK);
+
+then the buffer "ownership" is passed onto the OMX component (i.e. either RENESAS.H264 or ffmpeg component).
+
+Reading this doc (par. 3.5):
+
+  http://www.netmite.com/android/mydroid/donut/external/opencore/doc/openmax_call_sequences.pdf
+
+------------------
+The transition to executing starts the active processing of data. In this step, PV Framework:
+- Issues command to the OMX component to change state from OMX_StateIdle to OMX_StateExecuting via “OMX_SendCommand” call
+- Waits for the EventHandler callback to arrive from the OMX component which notifies the framework that the state transition is complete (OMX_EventCmdComplete).
+- Sends input buffers via “OMX_EmptyThisBuffer” calls and output buffers via “OMX_FillThisBuffer” calls to the OMX component. The component returns buffers using appropriate callbacks. 
+------------------
+
+Also, reading descriptions in frameworks/native/include/media/openmax/OMX_Core.h
+
+-------------------
+/** The OMX_EmptyThisBuffer macro will send a buffer full of data to an 
+    input port of a component.  The buffer will be emptied by the component
+    and returned to the application via the EmptyBufferDone call back.
+    This is a non-blocking call in that the component will record the buffer
+    and return immediately and then empty the buffer, later, at the proper 
+    time.  As expected, this macro may be invoked only while the component 
+    is in the OMX_StateExecuting.  If nPortIndex does not specify an input
+    port, the component shall return an error.  
+    The component should return from this call within 5 msec.
+
+/** The OMX_FillThisBuffer macro will send an empty buffer to an 
+    output port of a component.  The buffer will be filled by the component
+    and returned to the application via the FillBufferDone call back.
+    This is a non-blocking call in that the component will record the buffer
+    and return immediately and then fill the buffer, later, at the proper 
+    time.  As expected, this macro may be invoked only while the component 
+    is in the OMX_ExecutingState.  If nPortIndex does not specify an output
+    port, the component shall return an error.  
+-------------------
+
+Hence, a call to log message "onOMXFillBufferDone" is the one telling the output buffer has been processed.
+
+Why isn't image appearing on screen?
+
+
+
+
+
+
+
+

@@ -1,0 +1,35 @@
+
+ 4 May 2015
+ 
+Error happens during playback from Google PlayMovies  
+
+ -> Connection to server lost
+
+...
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] EMPTY_BUFFER_DONE(buffer: 0x2a086528)
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] Calling emptyBuffer on buffer 0x2a086528 (length 2125), timestamp 2510925083 us, flags 0x10
+I/AwesomePlayer(   74): cache is running low (< 40000) , pausing.
+W/MediaPlayer( 3202): info/warning (703, 6578)
+W/MediaPlayer( 3202): info/warning (701, 0)
+I/MediaPlayer( 3202): Info (703,6578)
+I/MediaPlayer( 3202): Info (701,0)
+I/ChromiumHTTPDataSourceSupport(   74): Request failed with status 4 and os_error -324
+I/qtaguid (   74): Untagging socket 37 failed errno=-2
+I/ChromiumHTTPDataSource(   74): Reconnect failed w/ err 0xfffffc14
+I/NuCachedSource2(   74): The attempt to reconnect failed, 9 retries remaining
+E/WVDRM:  ( 3202): p.a():-1, RQ: remove: unexpected type: Play
+...
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] stopped in state 1
+I/EV2OMXPlugin(   74): ***run OMFPlugin ------- destroyComponentInstance !!!!!!!!
+W/AudioFlinger(   74): session id 6 not found for pid 3202
+E/PlayMovies( 3202): LogcatClient.onError:62 Error: Q4q01TiikT_FL6nL, 2510591, 10, 32
+E/PlayMovies( 3202): THROWABLE:
+E/PlayMovies( 3202): com.google.android.videos.player.legacy.MediaPlayerException: What: 1, extra: 32
+
+Seems the trigger is from this error
+
+ I/AwesomePlayer(   74): cache is running low (< 40000) , pausing.
+
+which, as far as I can see, is a network latency issue...
+
+

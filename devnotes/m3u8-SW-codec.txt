@@ -1,0 +1,294 @@
+
+  12 Jun 2014
+
+ -----------------------
+
+Following up from omxdebug.txt
+
+Trying forcing S/W codec only to ACodec:
+
+bool ACodec::UninitializedState::onAllocateComponent
+...
+        OMXCodec::findMatchingCodecs(
+                mime.c_str(),
+                encoder, // createEncoder
+                NULL,  // matchComponentName
+                kSoftwareCodecsOnly,  // flags - was 0 - Forcing SW for ACodec (live streaming)
+                &matchingCodecs,
+                &matchingCodecQuirks);
+
+Also un-commenting this in device/renesas/emev/media_codecs.xml:
+
+    <MediaCodec name="OMX.google.h264.decoder" type="video/avc" />
+
+but it crashed:
+
+V/ACodec  (   74): Now uninitialized
+V/ACodec  (   74): onAllocateComponent
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Loaded
+V/ACodec  (   74): onConfigureComponent - msg: AMessage(what = 'setu', target = 17) = {
+V/ACodec  (   74):    string mime = "video/avc"
+V/ACodec  (   74):    int32_t width = 1280
+V/ACodec  (   74):    int32_t height = 720
+V/ACodec  (   74):    ABuffer *csd-0 = 0x2a089a80
+V/ACodec  (   74):    ABuffer *csd-1 = 0x2a088e50
+V/ACodec  (   74):    RefBase *native-window = 0x2a034238
+V/ACodec  (   74):  }
+V/ACodec  (   74): ComponentName: OMX.google.h264.decoder
+V/ACodec  (   74): onStart
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Loaded->Idle
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 8 buffers of size 65536 on input port
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 2 buffers of size 115200 on output port
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Idle->Executing
+V/ACodec  (   74): [OMX.google.h264.decoder] calling fillBuffer 0x2a0a59f0
+V/ACodec  (   74): [OMX.google.h264.decoder] calling fillBuffer 0x2a095dc0
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Executing
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a092e28 w/ codec specific data
+V/ACodec  (   74): [OMX.google.aac.decoder] calling emptyBuffer 0x2a051230 w/ time 408111 us
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a0a5748 w/ codec specific data
+F/ACodec  (   74): frameworks/av/media/libstagefright/ACodec.cpp:2544 CHECK_LE( buffer->size(),info->mData->capacity()) failed: 91286 vs. 65536
+F/libc    (   74): Fatal signal 11 (SIGSEGV) at 0xdeadbaad (code=1), thread 1533 (NuPlayerDecoder)
+...
+I/DEBUG   (   70): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+I/DEBUG   (   70): Build fingerprint: 'emxx/renesas_emev/emev:4.1.1/JRO03L/eng.ffxx68.20130710.064436:eng/test-keys'
+I/DEBUG   (   70): pid: 74, tid: 1533, name: NuPlayerDecoder  >>> /system/bin/mediaserver <<<
+I/DEBUG   (   70): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr deadbaad
+...
+I/DEBUG   (   70): backtrace:
+I/DEBUG   (   70):     #00  pc 000180ae  /system/lib/libc.so
+I/DEBUG   (   70):     #01  pc 0000dbd4  /system/lib/libc.so (abort+4)
+I/DEBUG   (   70):     #02  pc 00003f45  /system/lib/libcutils.so (__android_log_assert+88)
+I/DEBUG   (   70):     #03  pc 00049d2b  /system/lib/libstagefright.so
+
+Seems like buffer->size (91286) is larger than info->mData->capacity (65536).
+
+Note as info->mData->capacity is given on buffer allocation:
+
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 8 buffers of size 65536 on input port
+
+while OMXCodec is larger than that:
+
+V/OMXCodec(   74): [OMX.RENESAS.VIDEO.DECODER.H264] allocating 2 buffers of size 1048576 on input
+
+Buffer size gets from these fragments, in Acodec.cpp:
+
+ACodec::setupVideoEncoder
+...
+    def.nBufferSize = (video_def->nStride * video_def->nSliceHeight * 3) / 2;
+
+ACodec::setVideoFormatOnPort
+...
+    if (portIndex == kPortIndexInput) {
+        // XXX Need a (much) better heuristic to compute input buffer sizes.
+        const size_t X = 64 * 1024;
+        if (def.nBufferSize < X) {
+            def.nBufferSize = X;
+        }
+    }
+
+Changing logic like below:
+
+ const size_t X = 64 * 1024  ->  const size_t X = 128 * 1024;
+
+But now it's failing for some other reason:
+
+...
+V/ACodec  (   74): Increasing nBufferSize to 131072
+V/ACodec  (   74): setVideoFormatOnPort
+V/ACodec  (   74): ComponentName: OMX.google.h264.decoder
+V/ACodec  (   74): onStart
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Loaded->Idle
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 8 buffers of size 131072 on input port
+V/ACodec  (   74): [OMX.google.h264.decoder] Allocating 2 buffers of size 115200 on output port
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Idle->Executing
+V/ACodec  (   74): [OMX.google.h264.decoder] calling fillBuffer 0x2a085a80
+V/ACodec  (   74): [OMX.google.h264.decoder] calling fillBuffer 0x2a085c58
+V/ACodec  (   74): [OMX.google.h264.decoder] Now Executing
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a089e30 w/ codec specific data
+V/ACodec  (   74): [OMX.google.h264.decoder] onOMXEmptyBufferDone 0x2a089e30
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a099d50 w/ codec specific data
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a089e30 w/ time 240000 us
+E/SoftAVC (   74): Decoder failed: -2
+V/ACodec  (   74): [OMX.google.h264.decoder] onOMXEmptyBufferDone 0x2a099d50
+V/ACodec  (   74): [OMX.google.h264.decoder] calling emptyBuffer 0x2a099c50 w/ time 360000 us
+E/ACodec  (   74): [OMX.google.h264.decoder] ERROR(0x80001001)
+....
+
+ - - - - -
+
+11 Sep 2014
+
+E/SoftAVC (   74): Decoder failed: -2 
+
+Error comes from
+
+./frameworks/av/media/libstagefright/codecs/on2/h264dec/SoftAVC.cpp
+
+  ret = H264SwDecDecode(...)
+
+./frameworks/av/media/libstagefright/codecs/on2/h264dec/source/H264SwDecApi.c
+
+Need to add some traces here...
+
+ - - - - -
+
+ 02 Oct 2014
+
+Adding traces, I get these messages when video playback fails
+
+D/H264Dec (   75): H264SwDecInit#
+D/H264Dec (   75): H264SwDecInit# decInst 0x2a075448 noOutputReordering 0
+D/H264Dec (   75): H264SwDecInit# OK: return 0x2a0758a8
+D/H264Dec (   75): H264SwDecDecode#
+D/H264Dec (   75): H264SwDecDecode# decInst 0x2a0758a8  pInput 0x42b6dd88  pOutput 0x42b6dd7c
+D/H264Dec (   75): H264SwDecDecode# OK: DecResult 1
+D/H264Dec (   75): H264SwDecDecode#
+D/H264Dec (   75): H264SwDecDecode# decInst 0x2a0758a8  pInput 0x42b6dd88  pOutput 0x42b6dd7c
+D/H264Dec (   75): H264SwDecDecode# OK: DecResult 1
+D/H264Dec (   75): H264SwDecDecode#
+D/H264Dec (   75): H264SwDecDecode# decInst 0x2a0758a8  pInput 0x42b6dd88  pOutput 0x42b6dd7c
+D/H264Dec (   75): H264SwDecDecode# OK: DecResult -2
+E/SoftAVC (   75): Decoder failed: -2
+I/SoftAAC2(   75): Reconfiguring decoder: 44100 Hz, 2 channels
+E/ACodec  (   75): [OMX.google.h264.decoder] ERROR(0x80001001)
+E/NuPlayer(   75): Received error from video decoder, aborting playback.
+E/NuPlayer(   75): video track encountered an error (-2147483648)
+E/MediaPlayer( 1855): error (1, -2147483648)
+E/MediaPlayer( 1855): Error (1,-2147483648)
+D/VideoView( 1855): Error: 1,-2147483648
+D/RaiVplayer-track( 1855): Stop error - position : 0
+D/RaiVplayer-track( 1855): error - VIDEO
+
+Here, the "DecResult -2" is H264SWDEC_STRM_ERR from this fragment of code:
+
+        decResult = h264bsdDecode(&pDecCont->storage, tmpStream, strmLen,
+...
+        switch (decResult)
+        {
+...
+            case H264BSD_PARAM_SET_ERROR:
+                if ( !h264bsdCheckValidParamSets(&pDecCont->storage) &&
+                     strmLen == 0 )
+                {
+                    returnValue = H264SWDEC_STRM_ERR;
+
+which in turns falls into 
+
+  frameworks/av/media/libstagefright/codecs/on2/h264dec/source/h264bsd_storage.c
+
+Adding more traces here as well... Found out that this pointer is NULL:
+
+  pStorage->pps[i] (i=0)
+
+"pps" is the "Picture Parameter Set"... Need to find out where it was missing to be set...
+
+ - - - - -
+
+New question posted on:
+
+ http://stackoverflow.com/questions/26181554/stock-android-h264-decoder-failing-on-m3u8-url-files
+
+ - - - - -
+
+Enabling traces in h264bsd_storage.c and in h264bsd_pic_param_set.c too, I got these:
+
+D/H264Dec (   75): H264SwDecInit#
+D/H264Dec (   75): H264SwDecInit# decInst 0x2a066270 noOutputReordering 0
+D/H264Dec (   75): H264SwDecInit# OK: return 0x2a07a170
+D/H264Dec (   75): H264SwDecDecode#
+D/H264Dec (   75): H264SwDecDecode# decInst 0x2a07a170  pInput 0x42b86d88  pOutput 0x42b86d7c
+D/H264_decoder(   75): Access unit boundary
+D/H264_decoder(   75): SEQ PARAM SET
+D/H264Dec (   75): H264SwDecDecode# OK: DecResult 1
+D/H264Dec (   75): H264SwDecDecode#
+D/H264Dec (   75): H264SwDecDecode# decInst 0x2a07a170  pInput 0x42b86d88  pOutput 0x42b86d7c
+D/H264_decoder(   75): Access unit boundary
+D/H264_decoder(   75): PIC PARAM SET
+E/H264_pps(   75): entropy_coding_mode_flag
+E/H264_decoder(   75): PIC_PARAM_SET
+D/H264Dec (   75): H264SwDecDecode# OK: DecResult 1
+D/H264Dec (   75): H264SwDecDecode#
+D/H264Dec (   75): H264SwDecDecode# decInst 0x2a07a170  pInput 0x42b86d88  pOutput 0x42b86d7c
+D/H264_decoder(   75): Access unit boundary
+D/H264_decoder(   75): SEQ PARAM SET
+D/H264_decoder(   75): Access unit boundary
+D/H264_decoder(   75): PIC PARAM SET
+E/H264_pps(   75): entropy_coding_mode_flag
+E/H264_decoder(   75): PIC_PARAM_SET
+D/H264_decoder(   75): Access unit boundary
+-> then core
+
+ - - - - -
+
+ 10 Oct 2014
+
+Suspecting the size fix above is somewhat related... changing :
+
+ const size_t X = 128 * 1024  ->  const size_t X = 256 * 1024;
+
+Makes no difference... so reverting back to 128 * 1024.
+
+ - - - - -
+
+The very first error I get is from h264bsd_pic_param_set.c, in:
+
+    E/H264_pps(   75): entropy_coding_mode_flag
+    E/H264_decoder(   75): PIC_PARAM_SET
+
+    /* entropy_coding_mode_flag, shall be 0 for baseline profile */
+    tmp = h264bsdGetBits(pStrmData, 1);
+    if (tmp)
+    {
+        EPRINT("entropy_coding_mode_flag");
+        return(HANTRO_NOK);
+    }
+
+Looking in H264 docs, I found out that entropy_coding_mode_flag determines two types of encoding:
+
+    CAVLC: Context-based adaptive variable-length coding
+    CABAC: Context-based adaptive binary arithmetic coding
+
+Of the two, CAVLC is the lower-quality, easier-to-decode option, while CABAC is the higher-quality, harder-to-decode option.
+
+See more at: 
+
+  http://www.streaminglearningcenter.com/articles/producing-h264-video-for-flash-an-overview.html?page=3#sthash.26PqYA7p.dpuf
+
+Seems like only the "baseline profile" is supported by AOSP decoder, while we have a stream with entropy_coding_mode_flag set.
+
+That might be the same reason the HW decoder doesn't work either.
+
+ - - - - -
+
+Using MX Player with S/W codec mode plays back the same stream without any issue.
+
+So, I'm wondering about the feasibility of using SW codecs from MXPlayer in AOSP:
+
+ http://forum.xda-developers.com/apps/mx-player/integrating-mx-codecs-aosp-build-t2900815
+
+ - - - - -
+
+ 13 Oct
+
+MX Player makes use of ffmpeg codecs for SW decoding, which can be built as said in:
+
+ https://sites.google.com/site/mxvpen/ffmpeg
+
+See also these references:
+
+ http://sourceforge.net/projects/ffmpeg4android/ (builf ffmpeg only)
+
+This one seems to be doing the trick:
+
+ https://groups.google.com/forum/#!topic/android-x86/mTnTe39D5Co (Discussion for CM 10.1 = JB 4.3)
+ https://github.com/omxcodec/stagefright-plugins (Code)
+
+ - - - - - 
+
+Code merging described in ffmpeg.txt
+
+ - - - - -
+
+
+
+

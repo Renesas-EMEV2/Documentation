@@ -1,0 +1,15 @@
+
+ 22 Apr
+
+Testing basic compilation:
+
+Sourcing JB AOSP, then
+ 
+ ./compile_km.sh ... OK
+ ./compile_um.sh ... Error
+
+  LD       eurasiacon/binary2_emev_android_release/target/libsrv_init.so
+eurasiacon/binary2_emev_android_release/target/intermediates/libsrv_init/sgxinit.o: In function `LoaduKernelProgram':
+/home/fabio/disk2/RenesasEV2/SGX_1.8/SGX1.8_EMEV_JB/eurasia/services4/srvinit/devices/sgx/sgxinit.c:2148: undefined reference to `PVRSRVAllocDeviceMem'
+
+Why ???

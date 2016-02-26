@@ -1,0 +1,21 @@
+
+ 12 nov 2014
+															
+Why "adb reboot" is not rebooting?
+
+Should we add a soft-reset in kernel?
+
+See also this: 
+
+http://stackoverflow.com/questions/12190930/when-soft-reboot-linux-kernel-hangs-at-uncompressing-linux-done-booting-the
+
+kernel output on issuing 'reboot':
+
+...
+SysRq : Emergency Remount R/O
+Emergency Remount complete
+md: stopping all md devices.
+Restarting system.
+emxx_pm_do_poweroff_restart
+(then hanging)
+

@@ -1,0 +1,212 @@
+
+ 24 mar 2015
+
+Prapared an Ubuntu 14.10 env and downloaded AOSP source following 
+
+ http://source.android.com/source/initializing.html
+ http://source.android.com/source/downloading.html
+
+using "android-5.1.0_r1" (Lollipop, LP) as the repo branch.
+
+Home of the local LP AOSP:
+
+~/disk2/jp
+
+Built mini-emulator-x86_64, to test environment - Ok (took 12 hrs!).
+
+Creating a new "emev_lp" git branch in every location I have to track my changes.
+
+Following commit history in https://github.com/Renesas-EMEV2 on emev-4.1 branch, starting from the older ones, as the guideline to the upgrade. Manual merging only. Auto-merge using git is impossible (to many differences).
+
+Manually copied these files from JB bionic/ dir:
+
+libc/kernel/common/linux/ave_common_info.h
+libc/kernel/common/linux/buslim.h
+libc/kernel/common/linux/emxx_mem.h
+libc/kernel/common/linux/fbcommon.h
+libc/kernel/common/linux/inter_dsp_ioctl.h
+libc/kernel/common/linux/videodev2.h
+
+to LP libc/kernel/upapi/linux (dir organization under libc/kernel is different).
+
+Created new device/renesas/emev dir, git init, and and brought there some files taken from the JB dir. 
+
+Manually edited in LP to keep only very basic configuration and build option, as I just want to test basic startup of the kernel and AOSP, no frills. I included these custom HW libs:
+
+libcamera
+libgralloc
+liblights
+libsensors
+libstagefright
+
+ - - - - -
+
+1st build running...
+
+Error:
+
+--------------
+target thumb C++: recovery <= bootable/recovery/bootloader.cpp
+target thumb C++: recovery <= bootable/recovery/install.cpp
+target thumb C++: recovery <= bootable/recovery/roots.cpp
+bootable/recovery/roots.cpp:35:21: fatal error: cryptfs.h: No such file or directory
+ #include "cryptfs.h"
+                     ^
+compilation terminated.
+--------------
+
+I don't understand why it's buiding recovery image even though I set
+
+TARGET_NO_RECOVERY := true
+
+in BoardConfig.mk.
+
+Also, I don't understand why it's not finding cryptfs.h which is present in system/vold.
+
+ - - - -
+
+New build:
+
+make clean
+lunch 21
+make -j2
+
+... New error:
+--------------
+In file included from device/renesas/emev/libgralloc/allocator.h:24:0,
+                 from device/renesas/emev/libgralloc/allocator.cpp:19:
+device/renesas/emev/libgralloc/gr.h:22:23: fatal error: asm/page.h: No such file or directory
+ # include <asm/page.h>
+                       ^
+compilation terminated.
+--------------
+
+In JB this file was present in the bionic/libc/kernel/arch-arm/asm/page.h.
+In LP is not...
+Copying over this file too:
+
+cp ~/disk2/RenesasEV2/jb/bionic/libc/kernel/arch-arm/asm/page.h ~/disk5/rena/lp/bionic/libc/kernel/uapi/asm-arm/asm
+
+Make now fails for "cryptfs.h: No such file or directory" again...
+
+Asked on Google Building group...
+
+To study the build system: 
+https://www.safaribooksonline.com/library/view/embedded-android/9781449327958/ch04.html
+
+ - - - - 
+
+ 26 Mar
+
+New approach - copied all of device/renesas/emev from JB and try new build ...
+
+Also added the SELinux policy files found under device/asus/grouper/sepolicy
+
+Seems like we need to enable SELINUX in Kernel... See also:
+
+ https://source.android.com/devices/tech/security/selinux/index.html
+ http://selinuxproject.org/page/NB_SEforAndroid_1
+
+Will try to build LP, first.
+
+New error:
+
+target thumb C++: gralloc.emxx <= device/renesas/emev/libgralloc/framebuffer.cpp
+device/renesas/emev/libgralloc/gralloc.cpp:41:32: fatal error: linux/android_pmem.h: No such file or directory
+ #include <linux/android_pmem.h>
+                                ^
+compilation terminated.
+
+Missing files copied over from JB :
+
+ cp ~/disk2/RenesasEV2/jb/bionic/libc/kernel/common/linux/android_pmem.h ~/disk5/rena/lp/bionic/libc/kernel/uapi/linux/
+ cp ~/disk2/RenesasEV2/jb/bionic/libc/kernel/arch-arm/asm/arch/cpu.h ~/disk5/rena/lp/bionic/libc/kernel/uapi/asm-arm/asm
+
+Need to change system/core too (system/core/include/system/graphics.h); git branch emev_lp
+
+Excluded camera and sensors libs from build.
+
+Re-making.... OK!
+
+NOTE - The final link of webkit library need about 7-8 Gb RAM!!!
+
+ - - - - -
+
+ 14 April
+
+First boot Failed with (seen using serial console):
+
+VFS: Mounted root (ext3 filesystem) on device 179:5.
+Freeing init memory: 168K
+init: skipping insecure file '/default.prop'
+init: skipping insecure file '/init.trace.rc'
+init: could not import file '/init.trace.rc' from '/init.rc'
+init: skipping insecure file '/ueventd.rc'
+init: /dev/hw_random not found
+init: /dev/hw_random not found
+
+The "hw_random" is just a warning.
+
+After fixing the packaging script (pack.sh), to set 644 privileges to those files, I got rid of the "insecure file", but now I'm stuck with this other init error message:
+
+init: starting 'adbd'
+init: waitpid returned pid 107, status = 00000100
+init: process 'adbd', pid 107 exited
+init: process 'adbd' killing any children in process group
+(repeating)
+
+ - - - - 
+
+Revising the init.*.rc structure, using device/asus/grouper as a template...
+
+Now I get to the logcat !
+
+But it immediately errors out saying:
+
+I/Vold    (   71): Vold 2.1 (the revenge) firing up
+E/Vold    (   71): failed to open 	
+E/Vold    (   71): Error reading configuration (No such file or directory)... continuing anyways
+
+and then:
+
+D/libEGL  ( 7682): loaded /vendor/lib/egl/libGLESv2_POWERVR_SGX530_120.so
+W/linker  ( 7682): libpvrANDROID_WSEGL.so: unused DT entry: type 0xf arg 0x124
+W/libEGL  ( 7682): eglInitialize(0x1) failed (EGL_BAD_ALLOC)
+W/linker  ( 7682): gralloc.emxx.so: unused DT entry: type 0xf arg 0x4e8
+W/linker  ( 7682): libpvr2d.so: unused DT entry: type 0xf arg 0x779
+W/linker  ( 7682): hwcomposer.emxx.so: unused DT entry: type 0xf arg 0xeb
+E/HAL     ( 7682): load: module=/vendor/lib/hw/hwcomposer.emxx.so
+E/HAL     ( 7682): dlopen failed: cannot locate symbol "SGX_DBG" referenced by "hwcomposer.emxx.so"...
+E/SurfaceFlinger( 7682): hwcomposer module not found
+E/SurfaceFlinger( 7682): ERROR: failed to open framebuffer (Not a typewriter), aborting
+F/libc    ( 7682): Fatal signal 6 (SIGABRT), code -6 in tid 7682 (surfaceflinger)
+...
+
+I should create an fstab.emxx first, but that is necessary to handle SD card ... not a problem now.
+
+I can also connect to device through adb.
+
+Mount shows proper settings...
+
+130|shell@android:/ $ mount
+rootfs / rootfs rw 0 0
+/dev/root / ext3 ro,relatime,errors=continue,barrier=0,data=writeback 0 0
+tmpfs /dev tmpfs rw,nosuid,relatime,mode=755 0 0
+devpts /dev/pts devpts rw,relatime,mode=600 0 0
+proc /proc proc rw,relatime 0 0
+sysfs /sys sysfs rw,relatime 0 0
+none /acct cgroup rw,relatime,cpuacct 0 0
+tmpfs /mnt/asec tmpfs rw,relatime,mode=755,gid=1000 0 0
+tmpfs /mnt/obb tmpfs rw,relatime,mode=755,gid=1000 0 0
+none /dev/cpuctl cgroup rw,relatime,cpu 0 0
+
+See also: https://source.android.com/devices/storage/config.html
+
+ - - - - -
+
+What I'm most worried about is the hwcomposer failure.
+
+ -- >> See SGX_LP.txt
+
+
+
