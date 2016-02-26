@@ -39,19 +39,24 @@ You need at least to install the AOSP prerequisite packages, as said in:
 
  http://source.android.com/source/initializing.html
 
-but sometimes that's not enough. For example, a basic Ubuntu setup is normally missing the 'git' tool, which then needs to be installed with:
+but sometimes that's not enough. For example, a basic Ubuntu setup might be missing the 'git' tool, which then needs to be installed with:
 
 	sudo apt-get install git
 
 ### Setting up JAVA 
 
-We need JDK version 6 to build JB. The Open-JDK is installed with:
+We need JDK version 6 to build JB. 
+The Open-JDK is installed with:
 
 	sudo apt-get install openjdk-6-jdk
- 
-On the other hand, installation of Oracle JDK as suggested on the ASOP Google pagesdoes not work!
 
-If you have both Open-JDK and Oracle-JDK installed, you can choose which one to use executing:
+To develop other versions of Android, download and install the corresponding version of the Java JDK:
+
+Java 7: for Lollipop
+Java 6: for Gingerbread through KitKat
+Java 5: for Cupcake through Froyo
+
+If you have both Open-JDK and Oracle-JDK installed, or multiple versions, you can choose which one to use executing:
 
 	sudo update-alternatives --config java
 	sudo update-alternatives --config javac
@@ -59,9 +64,11 @@ If you have both Open-JDK and Oracle-JDK installed, you can choose which one to 
 	sudo update-alternatives --config javah
 	sudo update-alternatives --config javadoc
 
-and select the Open-JDK version for each of these packages. The build using Oracle-JDK failed to boot...
+and select the Open-JDK version for each of these packages. 
 
-See also here:
+Note - A build made using the Oracle-JDK failed to boot...
+
+See also:
 
  https://help.ubuntu.com/community/Java
 
